@@ -20,28 +20,22 @@ export type EntryStatus = 'original' | 'added' | 'replaced' | 'renamed'
 export interface ImgEntry {
   id: number
   name: string
-  /** byte size of the data (archive-backed entries are already sector padded) */
   size: number
   source: EntrySource
   status: EntryStatus
-  /** name the entry had when the archive was opened */
   originalName?: string
 }
 
 export interface ImgArchive {
   version: ImgVersion
-  /** display name, e.g. gta3.img */
   name: string
   img: File
   dir?: File
   imgHandle?: FileSystemFileHandle
   dirHandle?: FileSystemFileHandle
   entries: ImgEntry[]
-  /** number of entries when the archive was opened */
   openedCount: number
-  /** size of the .img on disk when opened */
   imgSize: number
-  /** first byte where entry data may start (0 for v1, directory size for v2) */
   dataStart: number
 }
 
@@ -116,7 +110,6 @@ export async function openArchive(input: OpenInput): Promise<ImgArchive> {
   }
 }
 
-/** Blob with the entry's data. Archive-backed entries are lazy slices of the original file. */
 export function entryBlob(archive: ImgArchive, entry: ImgEntry): Blob {
   if (entry.source.kind === 'blob') return entry.source.blob
   const start = entry.source.offset
@@ -129,9 +122,7 @@ export async function entryBytes(archive: ImgArchive, entry: ImgEntry): Promise<
 
 export interface ArchiveStats {
   count: number
-  /** bytes the .img would have after a rebuild */
   rebuiltSize: number
-  /** bytes a rebuild would free (positive) or add (negative) compared to the file on disk */
   delta: number
   modified: boolean
 }
@@ -154,9 +145,7 @@ export function archiveStats(archive: ImgArchive): ArchiveStats {
 }
 
 export interface BuildOutput {
-  /** parts of the new .img, in order (lazy: slices of the original file + new blobs) */
   imgParts: Blob[]
-  /** .dir bytes for v1 archives */
   dir?: Uint8Array<ArrayBuffer>
   imgSize: number
   layout: LayoutEntry[]
@@ -164,7 +153,6 @@ export interface BuildOutput {
 
 const ZERO_SECTOR = new Blob([new Uint8Array(SECTOR)])
 
-/** Lay out every entry sequentially and produce the byte parts for the new archive. */
 export function buildArchive(archive: ImgArchive): BuildOutput {
   const dataStart = archive.version === 2 ? v2DirectorySize(archive.entries.length) : 0
   const layout = layoutEntries(
@@ -190,7 +178,6 @@ export function buildArchive(archive: ImgArchive): BuildOutput {
   }
 }
 
-/** Order entries appear in the archive on disk (new entries go last). */
 export function byOffset(a: ImgEntry, b: ImgEntry): number {
   const ao = a.source.kind === 'archive' ? a.source.offset : Number.MAX_SAFE_INTEGER
   const bo = b.source.kind === 'archive' ? b.source.offset : Number.MAX_SAFE_INTEGER

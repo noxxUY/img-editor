@@ -1,6 +1,3 @@
-// RenderWare texture dictionary (TXD) parser for the PC versions of
-// GTA III / Vice City (D3D8) and San Andreas (D3D9).
-
 import { decodeDxt } from './dxt'
 import { RW, RwParseError, RwStream, formatVersion, type RwSection } from './stream'
 
@@ -33,18 +30,14 @@ export interface TxdTexture {
   depth: number
   mipLevels: number
   platform: Platform
-  /** human readable pixel format, e.g. "DXT1", "8888", "PAL8" */
   format: string
   hasAlpha: boolean
   rasterFormat: number
   filter: number
   addressU: number
   addressV: number
-  /** decoded base level as RGBA8, undefined when the format is not supported */
   rgba?: Uint8ClampedArray<ArrayBuffer>
-  /** why `rgba` is missing */
   problem?: string
-  /** total bytes of pixel data (all mip levels) */
   dataBytes: number
 }
 
@@ -310,7 +303,6 @@ function parseTextureNative(stream: RwStream, section: RwSection, warnings: stri
   return base
 }
 
-/** Texture names only, without decoding any pixels. */
 export function listTxdTextureNames(bytes: Uint8Array): string[] {
   const stream = new RwStream(bytes)
   const root = stream.topLevel().find((s) => s.type === RW.TEXTURE_DICTIONARY)

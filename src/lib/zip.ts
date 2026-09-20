@@ -6,7 +6,6 @@ export function isZip(file: File): boolean {
   return /\.zip$/i.test(file.name)
 }
 
-/** Files inside a mod zip, flattened: folders are dropped, readmes and screenshots skipped. */
 export async function filesFromZip(zip: File): Promise<File[]> {
   const entries = unzipSync(new Uint8Array(await zip.arrayBuffer()))
   const out: File[] = []

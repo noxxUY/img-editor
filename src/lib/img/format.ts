@@ -1,6 +1,3 @@
-// IMG archive format: v1 (GTA III, Vice City, Bully) and v2 (San Andreas).
-// All offsets and sizes in the directory are in 2048-byte sectors.
-
 export const SECTOR = 2048
 export const ENTRY_SIZE = 32
 export const NAME_BYTES = 24
@@ -10,9 +7,7 @@ export type ImgVersion = 1 | 2
 
 export interface DirEntry {
   name: string
-  /** byte offset of the data inside the .img */
   offset: number
-  /** size in bytes (always a multiple of SECTOR inside an archive) */
   size: number
 }
 
@@ -28,12 +23,10 @@ export function bytesToSectors(bytes: number): number {
   return Math.ceil(bytes / SECTOR)
 }
 
-/** Round a byte count up to the next sector boundary. */
 export function alignToSector(bytes: number): number {
   return bytesToSectors(bytes) * SECTOR
 }
 
-/** Identify what the first bytes of an .img file look like. */
 export function detectHeader(head: Uint8Array): HeaderKind {
   if (head.length >= 4) {
     const tag = latin1.decode(head.subarray(0, 4))
@@ -93,23 +86,19 @@ function readEntries(bytes: Uint8Array, count: number, v2: boolean): DirEntry[] 
   return entries
 }
 
-/** Parse a v1 .dir file. */
 export function parseDir(dir: Uint8Array): DirEntry[] {
   return readEntries(dir, Math.floor(dir.length / ENTRY_SIZE), false)
 }
 
-/** Read the entry count from a v2 header (first 8 bytes). */
 export function parseV2Count(head: Uint8Array): number {
   const view = new DataView(head.buffer, head.byteOffset, head.byteLength)
   return view.getUint32(4, true)
 }
 
-/** Parse the v2 directory table (bytes starting right after the 8-byte header). */
 export function parseV2Entries(table: Uint8Array, count: number): DirEntry[] {
   return readEntries(table, count, true)
 }
 
-/** Size in bytes of the v2 header + directory, rounded up to a sector. */
 export function v2DirectorySize(count: number): number {
   return alignToSector(8 + count * ENTRY_SIZE)
 }
@@ -124,7 +113,6 @@ export interface LayoutEntry extends LayoutInput {
   paddedSize: number
 }
 
-/** Assign sequential sector-aligned offsets. `dataStart` is where entry data begins. */
 export function layoutEntries(inputs: LayoutInput[], dataStart: number): LayoutEntry[] {
   let cursor = dataStart
   return inputs.map((e) => {
@@ -152,14 +140,12 @@ function writeEntries(entries: LayoutEntry[], v2: boolean, target: Uint8Array, a
   })
 }
 
-/** Build the .dir bytes for a v1 archive. */
 export function buildDir(entries: LayoutEntry[]): Uint8Array<ArrayBuffer> {
   const out = new Uint8Array(entries.length * ENTRY_SIZE)
   writeEntries(entries, false, out, 0)
   return out
 }
 
-/** Build the header + directory bytes for a v2 archive (sector aligned). */
 export function buildV2Header(entries: LayoutEntry[]): Uint8Array<ArrayBuffer> {
   const out = new Uint8Array(v2DirectorySize(entries.length))
   out.set([0x56, 0x45, 0x52, 0x32]) // "VER2"

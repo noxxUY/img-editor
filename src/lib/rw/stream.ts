@@ -1,6 +1,3 @@
-// RenderWare binary stream reader. Every section is a 12-byte header
-// (type, size, library id) followed by `size` bytes of data.
-
 export const RW = {
   STRUCT: 0x01,
   STRING: 0x02,
@@ -30,7 +27,6 @@ export interface RwSection {
   type: number
   size: number
   libId: number
-  /** decoded RW version, e.g. 0x36003 */
   version: number
   headerStart: number
   dataStart: number
@@ -54,7 +50,6 @@ export function formatVersion(version: number): string {
   return `${major}.${minor}.${rev}.${build}`
 }
 
-/** Best-effort game guess from an RW version. */
 export function gameForVersion(version: number): string {
   if (version >= 0x36000) return 'San Andreas'
   if (version >= 0x33000) return 'Vice City'
@@ -114,7 +109,6 @@ export class RwStream {
     this.need(n)
     this.pos += n
   }
-  /** Fixed-size latin1 string, cut at the first NUL. */
   str(len: number): string {
     this.need(len)
     const slice = this.bytes.subarray(this.pos, this.pos + len)
@@ -137,7 +131,6 @@ export class RwStream {
     return out
   }
 
-  /** Read a section header at `at` (default: current pos). Does not move `pos`. */
   peekSection(at: number, limit = this.bytes.length): RwSection | null {
     if (at + 12 > limit) return null
     const type = this.view.getUint32(at, true)
@@ -155,7 +148,6 @@ export class RwStream {
     }
   }
 
-  /** Read the section header at the current position and move `pos` to its data. */
   section(limit = this.bytes.length): RwSection {
     const s = this.peekSection(this.pos, limit)
     if (!s) throw new RwParseError(`Truncated section header at ${this.pos}`)
@@ -163,7 +155,6 @@ export class RwStream {
     return s
   }
 
-  /** Read the section at the current position and require a type. */
   expect(type: number, limit = this.bytes.length): RwSection {
     const s = this.section(limit)
     if (s.type !== type) {
@@ -174,7 +165,6 @@ export class RwStream {
     return s
   }
 
-  /** Enumerate the direct children of a section without moving `pos`. */
   children(parent: RwSection): RwSection[] {
     const out: RwSection[] = []
     let at = parent.dataStart
@@ -188,7 +178,6 @@ export class RwStream {
     return out
   }
 
-  /** Enumerate the top-level sections of the whole stream. */
   topLevel(): RwSection[] {
     return this.children({
       type: 0,
@@ -205,14 +194,12 @@ export class RwStream {
     return this.children(parent).find((c) => c.type === type)
   }
 
-  /** Read a String section's contents. */
   string(section: RwSection): string {
     this.pos = section.dataStart
     return this.str(section.dataEnd - section.dataStart)
   }
 }
 
-/** Quick check for a RenderWare file of the given root type. */
 export function rwRootType(bytes: Uint8Array): number | null {
   if (bytes.length < 12) return null
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)

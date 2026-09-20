@@ -1,4 +1,3 @@
-/** Wordmark: a dark square mark with three bars (the sector strip) and the name. */
 export function Brand({ size = 'sm', onClick }: { size?: 'sm' | 'lg'; onClick?: () => void }) {
   const mark = size === 'lg' ? 44 : 24
   const content = (

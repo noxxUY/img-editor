@@ -1,6 +1,3 @@
-// Browser file plumbing: pickers, drag & drop, writing back with the
-// File System Access API when available, downloads otherwise.
-
 export interface PickedFile {
   file: File
   handle?: FileSystemFileHandle
@@ -30,7 +27,6 @@ function pickWithInput(accept: string | undefined, multiple: boolean): Promise<F
   })
 }
 
-/** Pick archive files (.img plus its .dir for v1). Keeps handles so we can write back in place. */
 export async function pickArchiveFiles(): Promise<PickedFile[]> {
   if (window.showOpenFilePicker) {
     try {
@@ -48,16 +44,11 @@ export async function pickArchiveFiles(): Promise<PickedFile[]> {
   return (await pickWithInput('.img,.dir', true)).map((file) => ({ file }))
 }
 
-/** Pick loose files to add or replace. Handles not needed. */
 export async function pickFiles(multiple = true): Promise<File[]> {
   return pickWithInput(undefined, multiple)
 }
 
-/**
- * Files from a drop event, with handles when the browser gives them.
- * Everything that touches the DataTransfer has to happen before the first
- * await: the browser empties the item list as soon as the handler yields.
- */
+// DataTransfer items must be read before the first await (the browser clears them on yield)
 export function filesFromDrop(dt: DataTransfer): Promise<PickedFile[]> {
   const items = [...dt.items].filter((i) => i.kind === 'file')
   const files = items.map((i) => i.getAsFile())
@@ -88,7 +79,6 @@ function baseName(name: string): string {
   return (dot < 0 ? name : name.slice(0, dot)).toLowerCase()
 }
 
-/** Find the .img in a set of files and pair it with a matching .dir. */
 export function pairArchive(files: PickedFile[]): { img: PickedFile; dir?: PickedFile } | null {
   const img = files.find((f) => f.file.name.toLowerCase().endsWith('.img'))
   if (!img) return null
@@ -108,7 +98,6 @@ export async function ensureWritable(handle: FileSystemFileHandle): Promise<void
 
 const CHUNK = 8 * 1024 * 1024
 
-/** Stream blob parts into a file handle. The original file is untouched until close(). */
 export async function writeParts(
   handle: FileSystemFileHandle,
   parts: Blob[],
@@ -161,7 +150,6 @@ export async function writeFileInDirectory(dir: FileSystemDirectoryHandle, name:
   await writable.close()
 }
 
-/** Stream blob parts into a (new or existing) file inside a directory. */
 export async function writePartsInDirectory(
   dir: FileSystemDirectoryHandle,
   name: string,

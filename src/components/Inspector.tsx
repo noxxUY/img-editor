@@ -6,7 +6,6 @@ import { KIND_COLORS, KIND_LABELS, kindOf } from '../lib/kinds'
 import type { TextureHelp } from './DffPreview'
 import { TxdPreview } from './TxdPreview'
 
-// three.js is only needed for models, so it loads on first use
 const DffPreview = lazy(() => import('./DffPreview').then((m) => ({ default: m.DffPreview })))
 
 interface Props {

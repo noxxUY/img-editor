@@ -1,7 +1,6 @@
 import { Zip, ZipPassThrough } from 'fflate'
 import { entryBlob, type ImgArchive, type ImgEntry } from './img/archive'
 
-/** Store (no compression) the given entries into a zip. Reads one entry at a time. */
 export async function zipEntries(
   archive: ImgArchive,
   entries: ImgEntry[],

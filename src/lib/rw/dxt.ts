@@ -1,6 +1,3 @@
-// Block-compressed texture decoding (DXT1 / DXT3 / DXT5, a.k.a. BC1 / BC2 / BC3).
-// Output is tightly packed RGBA8, `width * height * 4` bytes.
-
 function expand565(c: number, out: Uint8Array, at: number) {
   const r = (c >> 11) & 0x1f
   const g = (c >> 5) & 0x3f

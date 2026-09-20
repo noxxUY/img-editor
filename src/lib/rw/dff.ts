@@ -1,5 +1,3 @@
-// RenderWare clump (DFF) parser: frames, geometries, materials and atomics.
-// Enough to render the model; animation, skinning weights and 2dfx are skipped.
 
 import { RW, RwParseError, RwStream, formatVersion, type RwSection } from './stream'
 
@@ -421,7 +419,6 @@ export function parseDff(bytes: Uint8Array): Dff {
   return dff
 }
 
-/** World matrices for every frame (column-major 4x4), resolving the parent chain. */
 export function frameWorldMatrices(frames: DffFrame[]): Float32Array[] {
   const world: (Float32Array | null)[] = frames.map(() => null)
   const compute = (i: number, depth = 0): Float32Array => {
@@ -438,7 +435,6 @@ export function frameWorldMatrices(frames: DffFrame[]): Float32Array[] {
   return frames.map((_, i) => compute(i))
 }
 
-/** Frame index that drives each bone of a skin, resolved through the HAnim bone ids. */
 export function boneFrames(dff: Dff, boneCount: number): number[] {
   const out: number[] = []
   if (dff.bones.length >= boneCount) {

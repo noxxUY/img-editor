@@ -8,7 +8,6 @@ export interface MenuItem {
   onSelect: () => void
 }
 
-/** A square dropdown attached to a button. */
 export function Menu({ button, items, primary }: { button: ReactNode; items: MenuItem[]; primary?: boolean }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)

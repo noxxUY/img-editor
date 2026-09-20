@@ -1,9 +1,5 @@
-// Item definition files (.ide) say which TXD every model uses.
-// Every relevant section has "id, model, txd, ..." lines.
-
 const SECTIONS = new Set(['objs', 'tobj', 'anim', 'peds', 'cars', 'weap', 'hier'])
 
-/** Map of model name (lower case, no extension) to txd name (lower case, no extension). */
 export type IdeMap = Map<string, string>
 
 export function parseIde(text: string, into: IdeMap = new Map()): IdeMap {

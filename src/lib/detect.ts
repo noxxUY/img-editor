@@ -43,7 +43,6 @@ export interface ColModel {
   size: number
 }
 
-/** List the collision models inside a .col file (they are concatenated). */
 export function listColModels(bytes: Uint8Array): ColModel[] {
   const out: ColModel[] = []
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)

@@ -1,10 +1,7 @@
-// Index of every texture name inside every TXD of an archive, so a model can
-// find its dictionary even when the names differ (map objects in San Andreas).
 import { entryBytes, extensionOf, type ImgArchive } from './img/archive'
 import { listTxdTextureNames } from './rw/txd'
 
 export interface TxdIndex {
-  /** texture name (lower case) -> entry ids of the TXDs that contain it */
   byTexture: Map<string, number[]>
   txdCount: number
   textureCount: number
@@ -36,7 +33,6 @@ export async function buildTxdIndex(
   return { byTexture, txdCount: txds.length, textureCount }
 }
 
-/** The TXD holding most of the given texture names. */
 export function bestTxdForTextures(
   index: TxdIndex,
   textureNames: string[],

@@ -145,7 +145,6 @@ export default function App() {
     [push],
   )
 
-  /** Mod zips are opened and their files added one by one. */
   const expandZips = useCallback(
     async (files: File[]): Promise<File[]> => {
       const out: File[] = []
@@ -204,7 +203,6 @@ export default function App() {
     [ideMap, push],
   )
 
-  // Runs in the background: the viewer keeps working while texture names are read.
   const buildIndex = useCallback(async () => {
     if (!archive || txdIndex || indexing) return
     const source = archive
@@ -234,7 +232,6 @@ export default function App() {
     [ideMap, txdIndex, indexing, buildIndex, loadIdeFiles],
   )
 
-  // drag & drop anywhere in the window
   useEffect(() => {
     let depth = 0
     const onEnter = (e: DragEvent) => {
@@ -422,7 +419,6 @@ export default function App() {
     }
   }, [archive, activeEntry, push])
 
-  /** Writes the rebuilt archive (and .dir) into a folder of the user's choice. */
   const saveCopyToFolder = useCallback(async () => {
     if (!archive) return
     const dir = await pickDirectory('img-save')
@@ -487,7 +483,6 @@ export default function App() {
     else closeArchive()
   }, [archive, stats?.modified, closeArchive])
 
-  // global shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return

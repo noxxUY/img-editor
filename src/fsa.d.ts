@@ -1,4 +1,3 @@
-// Minimal typings for the File System Access API bits we use (Chromium only).
 interface FilePickerAcceptType {
   description?: string
   accept: Record<string, string[]>

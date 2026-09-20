@@ -17,7 +17,6 @@ interface Placed {
   end: number
 }
 
-/** The archive as a strip of sectors: where every entry sits, the gaps, and what is pending. */
 export function SectorMap({ archive, selected, activeId, onPick }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [hover, setHover] = useState<{ x: number; placed: Placed | null } | null>(null)

@@ -177,7 +177,6 @@ type AutoSource = 'ide' | 'name' | 'prefix' | 'index'
 export interface TextureHelp {
   ideMap: IdeMap
   index: TxdIndex | null
-  /** progress while the archive's texture names are being read */
   indexing: { done: number; total: number } | null
   onBuildIndex: () => Promise<void>
   onLoadIde: () => Promise<void>

@@ -1,4 +1,3 @@
-// Pure edits on the entry list. Nothing here touches the disk.
 import { allocId, extensionOf, findByName, type ImgEntry } from './img/archive'
 import { nameProblem } from './img/format'
 
@@ -9,7 +8,6 @@ export interface AddResult {
   rejected: { name: string; reason: string }[]
 }
 
-/** Add loose files; a file whose name already exists replaces that entry's data. */
 export function addOrReplaceFiles(entries: ImgEntry[], files: File[]): AddResult {
   const out = [...entries]
   const added: string[] = []
@@ -80,7 +78,6 @@ export function matchesKind(entry: ImgEntry, kind: KindFilter): boolean {
   return ext === kind
 }
 
-/** Every space separated term has to appear in the name. */
 export function matchesQuery(entry: ImgEntry, terms: string[]): boolean {
   if (terms.length === 0) return true
   const name = entry.name.toLowerCase()

@@ -1,4 +1,3 @@
-// Turns a parsed DFF (+ optional TXD textures) into a three.js object.
 import * as THREE from 'three'
 import { STAND_UP_MATRIX, bindPose, frameWorldMatrices, type Dff } from './dff'
 import type { TxdTexture } from './txd'
@@ -13,7 +12,6 @@ export interface ModelStats {
   texturesMissing: string[]
   hasNightColors: boolean
   skinned: boolean
-  /** vehicle paint slots the model uses (primary, secondary, ...) */
   paintSlots: string[]
   hasDamagedParts: boolean
   hasLodParts: boolean
@@ -24,7 +22,6 @@ export interface BuildOptions {
   showLod?: boolean
 }
 
-// Vehicle materials carry placeholder colors the game swaps for the car's paint.
 const PAINT_SLOTS: { rgb: [number, number, number]; name: string; color: number }[] = [
   { rgb: [60, 255, 0], name: 'primary', color: 0xc2c6cc },
   { rgb: [255, 0, 175], name: 'secondary', color: 0x3b3f46 },
@@ -36,7 +33,6 @@ function paintSlot(color: readonly number[]) {
   return PAINT_SLOTS.find((p) => p.rgb[0] === color[0] && p.rgb[1] === color[1] && p.rgb[2] === color[2])
 }
 
-/** Names of the texture every material of the model refers to. */
 export function modelTextureNames(dff: Dff): string[] {
   const names = new Set<string>()
   for (const g of dff.geometries) for (const m of g.materials) if (m.texture) names.add(m.texture)
@@ -66,7 +62,6 @@ function wrapMode(mode: number): THREE.Wrapping {
   }
 }
 
-/** Upload a decoded TXD texture to the GPU. Returns null when it has no pixels. */
 export function textureFromTxd(t: TxdTexture): THREE.DataTexture | null {
   if (!t.rgba) return null
   const tex = new THREE.DataTexture(t.rgba, t.width, t.height, THREE.RGBAFormat, THREE.UnsignedByteType)
