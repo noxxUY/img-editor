@@ -1,0 +1,405 @@
+@import 'tailwindcss';
+
+/*
+  noxx's IMG Editor — design tokens.
+  Square geometry, hairlines, two pure themes (black / white), one signal accent.
+  Light is the base; dark is stamped with data-theme="dark" or follows the OS.
+*/
+:root {
+  color-scheme: light;
+  --bg: #ffffff;
+  --panel: #fafafa;
+  --panel-2: #f3f3f4;
+  --panel-3: #e9e9eb;
+  --line: #e2e2e5;
+  --line-strong: #c4c4ca;
+  --text: #111113;
+  --muted: #64656d;
+  --faint: #a4a5ad;
+  --accent: #e8470f;
+  --accent-ink: #ffffff;
+  --ok: #1a9a52;
+  --info: #2563eb;
+  --warn: #b45309;
+  --danger: #d4261c;
+  --checker-a: #e6e6e9;
+  --checker-b: #f7f7f8;
+  --selection: rgba(232, 71, 15, 0.1);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0a0a0b;
+  --panel: #101012;
+  --panel-2: #161618;
+  --panel-3: #1f1f22;
+  --line: #242427;
+  --line-strong: #3a3a3f;
+  --text: #f3f3f4;
+  --muted: #9a9ba3;
+  --faint: #5b5c63;
+  --accent: #ff6b35;
+  --accent-ink: #120700;
+  --ok: #3ddc84;
+  --info: #6ea2ff;
+  --warn: #ffb020;
+  --danger: #ff5d55;
+  --checker-a: #222226;
+  --checker-b: #17171a;
+  --selection: rgba(255, 107, 53, 0.14);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #0a0a0b;
+    --panel: #101012;
+    --panel-2: #161618;
+    --panel-3: #1f1f22;
+    --line: #242427;
+    --line-strong: #3a3a3f;
+    --text: #f3f3f4;
+    --muted: #9a9ba3;
+    --faint: #5b5c63;
+    --accent: #ff6b35;
+    --accent-ink: #120700;
+    --ok: #3ddc84;
+    --info: #6ea2ff;
+    --warn: #ffb020;
+    --danger: #ff5d55;
+    --checker-a: #222226;
+    --checker-b: #17171a;
+    --selection: rgba(255, 107, 53, 0.14);
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-panel-3: var(--panel-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-ok: var(--ok);
+  --color-info: var(--info);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-selection: var(--selection);
+  --font-sans: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
+  --radius: 0px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  transition:
+    background-color 220ms ease,
+    color 220ms ease;
+}
+
+* {
+  border-radius: 0 !important;
+}
+
+/* the whole page glides between the black and white themes */
+.btn,
+.field,
+.chip,
+header,
+footer,
+section,
+canvas,
+[class*='bg-'],
+[class*='border-'],
+[class*='text-'] {
+  transition-property: background-color, border-color, color, opacity, transform;
+  transition-duration: 160ms;
+  transition-timing-function: ease;
+}
+
+/* the brand never moves; a clickable one only tints its name on hover */
+button.brand:hover .brand-name {
+  color: var(--accent);
+}
+
+/* loading placeholder */
+@keyframes shimmer {
+  from {
+    background-position: -200px 0;
+  }
+  to {
+    background-position: 200px 0;
+  }
+}
+.shimmer {
+  background: linear-gradient(90deg, var(--panel-2) 0%, var(--panel-3) 50%, var(--panel-2) 100%);
+  background-size: 400px 100%;
+  animation: shimmer 1.1s linear infinite;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+.checker {
+  background-color: var(--checker-b);
+  background-image:
+    linear-gradient(45deg, var(--checker-a) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--checker-a) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--checker-a) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--checker-a) 75%);
+  background-size: 16px 16px;
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+}
+
+/* ---------- controls ---------- */
+
+.btn {
+  @apply inline-flex h-8 items-center gap-1.5 border border-line-strong bg-panel-2 px-3 text-[12.5px] font-medium text-text whitespace-nowrap select-none;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    transform 120ms ease;
+}
+.btn:hover:not(:disabled) {
+  @apply border-text bg-panel-3;
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.btn:disabled {
+  @apply cursor-not-allowed opacity-40;
+}
+.btn-primary {
+  @apply border-accent bg-accent text-accent-ink;
+}
+.btn-primary:hover:not(:disabled) {
+  @apply border-accent bg-accent brightness-110;
+}
+.btn-danger:hover:not(:disabled) {
+  @apply border-danger text-danger;
+}
+.btn-ghost {
+  @apply border-transparent bg-transparent;
+}
+.btn-icon {
+  @apply w-8 justify-center px-0;
+}
+
+/* joined button group: shared hairlines */
+.btn-group {
+  @apply inline-flex;
+}
+.btn-group > .btn + .btn {
+  margin-left: -1px;
+}
+
+.btn:focus-visible,
+.field:focus-visible,
+.row:focus-visible,
+.tile:focus-visible,
+.chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.field {
+  @apply h-8 border border-line-strong bg-bg px-2.5 text-[13px] text-text placeholder:text-faint;
+  transition: border-color 140ms ease;
+}
+.field:focus {
+  @apply border-text outline-none;
+}
+
+.chip {
+  @apply inline-flex h-7 items-center gap-1.5 border border-line bg-transparent px-2 text-[12px] font-medium text-muted select-none;
+  transition:
+    border-color 140ms ease,
+    color 140ms ease,
+    background-color 140ms ease;
+}
+.chip:hover:not(:disabled) {
+  @apply border-line-strong text-text;
+}
+.chip-on,
+.chip-on:hover:not(:disabled) {
+  @apply border-accent bg-selection text-text;
+}
+.chip:disabled {
+  @apply opacity-35;
+}
+
+.kbd {
+  @apply inline-block border border-line-strong bg-panel-2 px-1 font-mono text-[11px] leading-[16px] text-muted;
+}
+
+input[type='checkbox'] {
+  accent-color: var(--accent);
+}
+
+/* ---------- motion ---------- */
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ants {
+  to {
+    background-position:
+      12px 0,
+      -12px 100%,
+      0 -12px,
+      100% 12px;
+  }
+}
+@keyframes stripes {
+  to {
+    background-position: 24px 0;
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes veil {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.anim-veil {
+  /* invisible at rest, so it never hides the canvas when animations are off */
+  opacity: 0;
+  animation: veil 320ms ease-out;
+}
+.anim-fade-up {
+  animation: fade-up 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.anim-fade-in {
+  animation: fade-in 220ms ease both;
+}
+.anim-scale-in {
+  animation: scale-in 180ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.anim-slide-in-right {
+  animation: slide-in-right 220ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.delay-1 {
+  animation-delay: 60ms;
+}
+.delay-2 {
+  animation-delay: 120ms;
+}
+.delay-3 {
+  animation-delay: 180ms;
+}
+
+/* marching ants: four 1px edges drawn with gradients */
+.ants {
+  background-image:
+    linear-gradient(90deg, var(--accent) 50%, transparent 50%),
+    linear-gradient(90deg, var(--accent) 50%, transparent 50%),
+    linear-gradient(0deg, var(--accent) 50%, transparent 50%),
+    linear-gradient(0deg, var(--accent) 50%, transparent 50%);
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+  background-size:
+    12px 1px,
+    12px 1px,
+    1px 12px,
+    1px 12px;
+  background-position:
+    0 0,
+    0 100%,
+    0 0,
+    100% 0;
+  animation: ants 700ms linear infinite;
+}
+
+.stripes {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--accent) 0 6px,
+    color-mix(in srgb, var(--accent) 70%, var(--accent-ink)) 6px 12px
+  );
+  background-size: 24px 24px;
+  animation: stripes 600ms linear infinite;
+}
+
+.spinner {
+  @apply inline-block size-3 border-2 border-accent border-t-transparent;
+  animation: spin 700ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
