@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   archiveStats,
   buildArchive,
@@ -12,7 +12,6 @@ import {
   downloadBlob,
   filesFromDrop,
   hasDirectoryPicker,
-  hasFileSystemAccess,
   pairArchive,
   pickArchiveFiles,
   pickDirectory,
@@ -37,13 +36,34 @@ import {
 } from './lib/ops'
 import { zipEntries } from './lib/extract'
 import { formatBytes } from './lib/detect'
+import {
+  Download,
+  FileArchive,
+  FileBox,
+  FilePlus2,
+  FolderDown,
+  FolderOpen,
+  HardDrive,
+  PanelRight,
+  Replace,
+  Save,
+  Search,
+  Trash2,
+  TriangleAlert,
+  Undo2,
+  Upload,
+} from 'lucide-react'
 import { parseIde, type IdeMap } from './lib/ide'
 import { buildTxdIndex, type TxdIndex } from './lib/txdIndex'
 import { KIND_COLORS, KIND_LABELS, kindOf, type Kind } from './lib/kinds'
-import type { TextureHelp } from './components/DffPreview'
+import { Meter, type TextureHelp } from './components/DffPreview'
 import { Brand } from './components/Brand'
-import { Footer } from './components/Footer'
-import { ThemeToggle } from './components/ThemeToggle'
+import { Horizon } from './components/Horizon'
+import { Footer, GITHUB_REPO, GithubIcon } from './components/Footer'
+import { Details } from './components/Details'
+import { Appearance } from './components/Appearance'
+import { PALETTES, applyPalette, currentPalette, type Palette } from './lib/theme'
+import { detectGame } from './lib/game'
 import { EntryList } from './components/EntryList'
 import { Inspector } from './components/Inspector'
 import { SectorMap } from './components/SectorMap'
@@ -84,6 +104,14 @@ export default function App() {
   const [ideMap, setIdeMap] = useState<IdeMap>(() => new Map())
   const [txdIndex, setTxdIndex] = useState<TxdIndex | null>(null)
   const [indexing, setIndexing] = useState<{ done: number; total: number } | null>(null)
+  // phones show either the list or the inspector
+  const [mobilePane, setMobilePane] = useState<'list' | 'inspector'>('list')
+  // below 1280px the details rail is a drawer
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  // the game the open archive belongs to, read from the archive itself
+  const [detected, setDetected] = useState<Palette | null>(null)
+  // bumped by the logo on the start screen: scroll back up and replay the horizon
+  const [homeTick, setHomeTick] = useState(0)
   const { toasts, push, dismiss } = useToasts()
 
   const stats = useMemo(() => (archive ? archiveStats(archive) : null), [archive])
@@ -125,12 +153,21 @@ export default function App() {
           dirHandle: pair.dir?.handle,
         })
         setArchive(opened)
+        setDetected(null)
+        detectGame(opened)
+          .then((game) => {
+            if (!game) return
+            setDetected(game)
+            if (game !== currentPalette()) applyPalette(game, { sweep: true })
+          })
+          .catch(() => {})
         setSelected(new Set())
         setActiveId(null)
         setQuery('')
         setKind('all')
         setSort({ key: 'order', dir: 1 })
         setTxdIndex(null)
+        setMobilePane('list')
         const writable = !!opened.imgHandle && (opened.version === 2 || !!opened.dirHandle)
         push(
           'success',
@@ -475,6 +512,8 @@ export default function App() {
     setQuery('')
     setKind('all')
     setTxdIndex(null)
+    setMobilePane('list')
+    setDetected(null)
   }, [])
 
   const goHome = useCallback(() => {
@@ -502,6 +541,7 @@ export default function App() {
   const onSelectionChange = useCallback((sel: Set<number>, active: number | null) => {
     setSelected(sel)
     setActiveId(active)
+    if (active !== null && sel.size === 1) setMobilePane('inspector')
   }, [])
 
   const kindCounts = useMemo(() => {
@@ -510,116 +550,184 @@ export default function App() {
     return counts
   }, [archive])
 
+  const game = !archive
+    ? ''
+    : detected
+      ? PALETTES.find((p) => p.key === detected)!.name
+      : archive.version === 2
+        ? 'San Andreas'
+        : 'GTA III / Vice City'
+  const addFromPicker = async () => addFiles(await expandZips(await pickFiles(true)))
+  const multiToFolder = selectedEntries.length > 1 && hasDirectoryPicker
+
   return (
     <div className="flex h-full flex-col">
-      <header className="anim-fade-in flex min-h-11 shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-line bg-panel px-3 py-1.5">
-        <Brand onClick={archive ? goHome : undefined} />
+      <header className={`relative z-30 flex h-[52px] shrink-0 items-center gap-3 px-3 md:px-4 ${archive ? 'border-b border-line bg-panel' : 'bg-bg md:px-6'}`}>
+        <Brand
+          onClick={archive ? goHome : () => setHomeTick((n) => n + 1)}
+          compact={!!archive}
+          title={archive ? 'Close the archive and go back to the start' : 'Back to the top'}
+        />
         {archive ? (
-          <div className="flex min-w-0 flex-1 items-center gap-x-3 text-[12.5px]">
-            <span className="h-4 w-px bg-line-strong" aria-hidden />
-            <span className="truncate font-mono text-[12.5px]">{archive.name}</span>
-            <span className="hidden text-muted sm:inline">
-              IMG v{archive.version}, {archive.version === 2 ? 'San Andreas' : 'GTA III / Vice City'}
-            </span>
-            <span className="tnum hidden text-muted md:inline">{archive.entries.length.toLocaleString()} entries</span>
-            {stats?.modified && (
-              <span className="flex items-center gap-1.5 text-accent">
-                <span className="inline-block size-1.5 bg-accent" aria-hidden />
-                unsaved changes
+          <div className="flex min-w-0 flex-1 items-center">
+            {/* the open archive, shown like a cartridge in a slot */}
+            <div className="ml-1 flex h-8 min-w-0 items-center gap-2.5 border border-line-strong bg-bg pr-3 pl-2.5 sm:ml-3">
+              <FileBox size={15} strokeWidth={1.75} className="hidden shrink-0 text-accent-fg sm:block" aria-hidden />
+              <span className="truncate font-mono text-[12.5px] font-medium" title={archive.name}>
+                {archive.name}
               </span>
-            )}
+              <span className="hidden shrink-0 font-mono text-[11px] text-muted lg:inline">
+                v{archive.version} · {game} · {archive.entries.length.toLocaleString()}
+              </span>
+              {stats?.modified && (
+                <span className="flex shrink-0 items-center gap-1.5 text-[12px] font-medium text-accent-fg" title="Unsaved changes">
+                  <span className="pulse-dot size-1.5 bg-accent" aria-hidden />
+                  <span className="hidden md:inline">unsaved</span>
+                  <span className="sr-only md:hidden">Unsaved changes</span>
+                </span>
+              )}
+            </div>
           </div>
         ) : (
-          <span className="hidden flex-1 text-[12.5px] text-muted md:inline">GTA III, Vice City and San Andreas archives, in the browser</span>
+          <span className="flex-1" />
         )}
-        <div className="ml-auto flex shrink-0 items-center gap-2">
-          <div className="btn-group">
-            <button className="btn" onClick={open} title="Ctrl+O">
-              Open
-            </button>
-            {archive && (
-              <button
-                className="btn"
-                onClick={async () => addFiles(await expandZips(await pickFiles(true)))}
-                title="Files with a name that already exists replace that entry. Zips are opened."
-              >
-                Add files
+        <div className="flex shrink-0 items-center gap-1.5 md:gap-2">
+          {archive ? (
+            <>
+              <button className="btn btn-ghost btn-icon md:w-auto md:px-3" onClick={open} title="Open another archive (Ctrl O)" aria-label="Open another archive">
+                <FolderOpen size={16} strokeWidth={1.75} aria-hidden />
+                <span className="hidden md:inline">Open</span>
               </button>
-            )}
-          </div>
-          {archive && stats?.modified && (
-            <button className="btn btn-ghost" onClick={() => setModal({ kind: 'discard' })}>
-              Discard
-            </button>
+              <button
+                className="btn btn-ghost btn-icon md:w-auto md:px-3"
+                onClick={addFromPicker}
+                title="Files with a name that already exists replace that entry. Zips are opened."
+                aria-label="Add files"
+              >
+                <FilePlus2 size={16} strokeWidth={1.75} aria-hidden />
+                <span className="hidden md:inline">Add files</span>
+              </button>
+              <Menu
+                primary={!!stats?.modified}
+                button={
+                  <>
+                    <Save size={15} strokeWidth={1.75} aria-hidden />
+                    Save
+                  </>
+                }
+                items={[
+                  {
+                    label: `Overwrite ${archive.name}`,
+                    icon: <HardDrive size={15} strokeWidth={1.75} />,
+                    hint: canSaveInPlace
+                      ? 'Rewrites the file on disk in place, without gaps.'
+                      : 'Needs Chrome or Edge and the archive opened with the Open button or dropped from Explorer.',
+                    shortcut: 'Ctrl S',
+                    disabled: !canSaveInPlace,
+                    onSelect: () => setModal({ kind: 'save-in-place' }),
+                  },
+                  {
+                    label: 'Save a copy to a folder…',
+                    icon: <FolderDown size={15} strokeWidth={1.75} />,
+                    hint: hasDirectoryPicker
+                      ? `Writes ${archive.name}${archive.version === 1 ? ' and its .dir' : ''} where you choose. The original stays untouched.`
+                      : 'Not available in this browser; use Download instead.',
+                    disabled: !hasDirectoryPicker,
+                    onSelect: () => void saveCopyToFolder(),
+                  },
+                  {
+                    label: 'Download rebuilt archive',
+                    icon: <Download size={15} strokeWidth={1.75} />,
+                    hint: 'Goes to your downloads folder. Works in every browser.',
+                    onSelect: saveAsDownload,
+                  },
+                  ...(stats?.modified
+                    ? [
+                        {
+                          label: 'Discard changes…',
+                          icon: <Undo2 size={15} strokeWidth={1.75} />,
+                          hint: 'Reload the archive as it is on disk.',
+                          onSelect: () => setModal({ kind: 'discard' }),
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+              <button
+                className="btn btn-ghost btn-icon hidden md:inline-flex xl:hidden"
+                onClick={() => setDetailsOpen((o) => !o)}
+                aria-pressed={detailsOpen}
+                aria-label="Details"
+                title="Details"
+              >
+                <PanelRight size={16} strokeWidth={1.75} />
+              </button>
+            </>
+          ) : (
+            <>
+              <nav className="mr-2 hidden items-center gap-1 md:flex" aria-label="Sections">
+                <a className="btn btn-ghost" href="#how">
+                  How it works
+                </a>
+                <a className="btn btn-ghost" href="#games">
+                  Games
+                </a>
+                <a className="btn btn-ghost" href={GITHUB_REPO} target="_blank" rel="noopener noreferrer">
+                  <GithubIcon />
+                  Source
+                </a>
+              </nav>
+              <button className="btn btn-primary btn-sm" onClick={open}>
+                Open an archive
+              </button>
+            </>
           )}
-          {archive && (
-            <Menu
-              primary={!!stats?.modified}
-              button={stats?.modified ? 'Save changes' : 'Save'}
-              items={[
-                {
-                  label: `Overwrite ${archive.name}`,
-                  hint: canSaveInPlace
-                    ? 'Rewrites the file on disk in place, without gaps.'
-                    : 'Needs Chrome or Edge and the archive opened with the Open button or dropped from Explorer.',
-                  shortcut: 'Ctrl S',
-                  disabled: !canSaveInPlace,
-                  onSelect: () => setModal({ kind: 'save-in-place' }),
-                },
-                {
-                  label: 'Save a copy to a folder…',
-                  hint: hasDirectoryPicker
-                    ? `Writes ${archive.name}${archive.version === 1 ? ' and its .dir' : ''} where you choose. The original stays untouched.`
-                    : 'Not available in this browser; use Download instead.',
-                  disabled: !hasDirectoryPicker,
-                  onSelect: () => void saveCopyToFolder(),
-                },
-                {
-                  label: 'Download rebuilt archive',
-                  hint: 'Goes to your downloads folder. Works in every browser.',
-                  onSelect: saveAsDownload,
-                },
-              ]}
-            />
-          )}
-          <ThemeToggle />
+          <Appearance />
         </div>
       </header>
 
-      {archive ? (
-        <div className="anim-fade-in grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(340px,2fr)_minmax(0,3fr)]">
-          <section className="flex min-h-0 flex-col border-line md:border-r" aria-label="Entries">
-            <div className="flex flex-col gap-2 border-b border-line bg-panel px-3 py-2">
-              <div className="flex items-center gap-2">
+      {archive && stats ? (
+        <div className="relative grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(290px,340px)_minmax(0,1fr)] xl:grid-cols-[340px_minmax(0,1fr)_288px]">
+          <section
+            className={`min-h-0 flex-col border-line bg-panel md:flex md:border-r ${mobilePane === 'inspector' ? 'hidden' : 'flex'}`}
+            aria-label="Entries"
+          >
+            <div className="flex flex-col gap-3 border-b border-line p-3">
+              <div className="relative">
+                <Search size={15} strokeWidth={1.75} className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-faint" aria-hidden />
                 <input
                   id="search"
                   type="search"
-                  className="field min-w-0 flex-1 font-mono"
-                  placeholder="Filter by name"
+                  className="field h-9 w-full pr-3 pl-8 font-mono text-[12.5px]"
+                  placeholder="Find an entry, e.g. cesar"
+                  aria-label="Filter entries by name"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
-                <span className="tnum shrink-0 font-mono text-[12px] text-muted">
-                  {visible.length === archive.entries.length
-                    ? `${visible.length.toLocaleString()}`
-                    : `${visible.length.toLocaleString()} / ${archive.entries.length.toLocaleString()}`}
-                </span>
               </div>
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="grid grid-cols-3 gap-px border border-line bg-line" role="group" aria-label="Entry type">
                 {KIND_FILTERS.map((f) => {
                   const count = f.key === 'all' ? archive.entries.length : kindCounts[f.key]
+                  const on = kind === f.key
                   return (
                     <button
                       key={f.key}
-                      className={`chip ${kind === f.key ? 'chip-on' : ''}`}
+                      className={`flex cursor-pointer flex-col items-start gap-0.5 px-2.5 py-1.5 text-left transition-colors duration-100 disabled:cursor-default disabled:opacity-35 ${
+                        on ? 'bg-panel-3 text-text' : 'bg-panel text-muted hover:bg-panel-2 hover:text-text'
+                      }`}
+                      aria-pressed={on}
                       onClick={() => setKind(f.key)}
                       disabled={count === 0 && f.key !== 'all'}
                     >
-                      {f.key !== 'all' && (
-                        <span className="inline-block size-2" style={{ background: KIND_COLORS[f.key] }} aria-hidden />
-                      )}
-                      {f.label}
-                      <span className="tnum font-mono text-[11px] text-faint">{count.toLocaleString()}</span>
+                      <span className="flex items-center gap-1.5 text-[12.5px] font-medium">
+                        <span
+                          className="swatch"
+                          style={{ background: f.key === 'all' ? 'var(--text)' : KIND_COLORS[f.key] }}
+                          aria-hidden
+                        />
+                        {f.label}
+                      </span>
+                      <span className={`tnum font-mono text-[11px] ${on ? 'text-accent-fg' : 'text-faint'}`}>{count.toLocaleString()}</span>
                     </button>
                   )
                 })}
@@ -636,36 +744,41 @@ export default function App() {
               onRename={(entry) => setModal({ kind: 'rename', entry, value: entry.name })}
               onOpen={(entry) => extract([entry])}
             />
-            <div className="flex h-10 shrink-0 items-center gap-2 border-t border-line bg-panel px-3 text-[12px]">
-              {selectedEntries.length > 0 ? (
-                <>
-                  <span className="tnum text-muted">
-                    {selectedEntries.length.toLocaleString()} selected,{' '}
-                    {formatBytes(selectedEntries.reduce((n, e) => n + e.size, 0))}
-                  </span>
-                  <span className="grow" />
-                  <div className="btn-group">
-                    <button className="btn h-7" onClick={() => extract(selectedEntries)}>
-                      {selectedEntries.length > 1 && hasDirectoryPicker ? 'Extract to folder' : 'Extract'}
-                    </button>
-                    {selectedEntries.length > 1 && hasDirectoryPicker && (
-                      <button className="btn h-7" onClick={zipSelected}>
-                        Zip
-                      </button>
-                    )}
-                    <button className="btn btn-danger h-7" onClick={() => remove(selectedEntries)}>
-                      Delete
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <span className="text-muted">
-                  Click to select, <span className="kbd">Shift</span> for a range, <span className="kbd">Ctrl</span> to add. Drop files to add or replace.
+            {selectedEntries.length > 1 ? (
+              <div className="anim-slide-in flex min-h-12 shrink-0 items-center gap-2 border-t border-line-strong bg-panel-2 px-3 py-2 text-[12.5px]">
+                <span className="tnum min-w-0 flex-1 truncate">
+                  <span className="font-semibold">{selectedEntries.length.toLocaleString()} selected</span>
+                  <span className="text-muted"> · {formatBytes(selectedEntries.reduce((n, e) => n + e.size, 0))}</span>
                 </span>
-              )}
-            </div>
+                <div className="btn-group">
+                  <button className="btn btn-sm" onClick={() => extract(selectedEntries)}>
+                    <Download size={14} strokeWidth={1.75} aria-hidden />
+                    {multiToFolder ? 'To folder' : 'Extract'}
+                  </button>
+                  {multiToFolder && (
+                    <button className="btn btn-sm" onClick={zipSelected}>
+                      <FileArchive size={14} strokeWidth={1.75} aria-hidden />
+                      Zip
+                    </button>
+                  )}
+                </div>
+                <button
+                  className="btn btn-sm btn-danger btn-icon"
+                  onClick={() => remove(selectedEntries)}
+                  aria-label={`Delete ${selectedEntries.length} selected`}
+                  title="Delete (Del)"
+                >
+                  <Trash2 size={14} strokeWidth={1.75} />
+                </button>
+              </div>
+            ) : (
+              <p className="hidden shrink-0 border-t border-line px-3 py-2.5 text-[12px] text-faint md:block">
+                <span className="kbd">Shift</span> selects a range, <span className="kbd">Ctrl</span> adds one. Drop files to add or replace.
+              </p>
+            )}
           </section>
-          <section className="flex min-h-0 flex-col" aria-label="Inspector">
+
+          <section className={`min-h-0 flex-col md:flex ${mobilePane === 'list' ? 'hidden' : 'flex'}`} aria-label="Stage">
             <Inspector
               archive={archive}
               entry={activeEntry}
@@ -674,67 +787,88 @@ export default function App() {
               onReplace={replace}
               onRename={(entry) => setModal({ kind: 'rename', entry, value: entry.name })}
               onDelete={(entry) => remove([entry])}
+              onBack={() => setMobilePane('list')}
             />
           </section>
+
+          <div
+            className={`min-h-0 xl:static xl:flex xl:flex-col ${
+              detailsOpen
+                ? 'anim-slide-in absolute inset-y-0 right-0 z-20 hidden w-[300px] shadow-[-24px_0_48px_-24px_rgb(0_0_0/0.5)] md:flex md:flex-col xl:w-auto xl:shadow-none'
+                : 'hidden'
+            }`}
+          >
+            <Details
+              archive={archive}
+              game={game}
+              stats={stats}
+              entry={activeEntry}
+              ideMap={ideMap}
+              txdIndex={txdIndex}
+              indexing={indexing}
+              onLoadIde={() => void textureHelp.onLoadIde()}
+              onBuildIndex={() => void buildIndex()}
+            />
+          </div>
         </div>
       ) : (
-        <EmptyState onOpen={open} />
+        <Landing onOpen={open} replay={homeTick} />
       )}
 
       {archive && stats && (
-        <div className="shrink-0 border-t border-line bg-panel px-3 pt-2 pb-2">
-          <SectorMap
-            archive={archive}
-            selected={selected}
-            activeId={activeId}
-            onPick={(entry) => {
-              setSelected(new Set([entry.id]))
-              setActiveId(entry.id)
-            }}
-          />
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-[11.5px] text-muted">
-            <span className="tnum">
-              {formatBytes(archive.imgSize)} on disk, {Math.ceil(archive.imgSize / 2048).toLocaleString()} sectors of 2 KB
-            </span>
-            {stats.delta > 0 && <span className="tnum">saving reclaims {formatBytes(stats.delta)}</span>}
-            {stats.delta < 0 && <span className="tnum">saving grows the archive by {formatBytes(-stats.delta)}</span>}
-            <span className="grow" />
+        <footer className="flex shrink-0 items-center gap-3 border-t border-line bg-panel px-3 py-2 md:px-4">
+          <span className="label hidden shrink-0 sm:block">Sectors</span>
+          <div className="min-w-0 flex-1">
+            <SectorMap
+              archive={archive}
+              selected={selected}
+              activeId={activeId}
+              onPick={(entry) => {
+                setSelected(new Set([entry.id]))
+                setActiveId(entry.id)
+                setMobilePane('inspector')
+              }}
+            />
+          </div>
+          <span className="tnum hidden shrink-0 font-mono text-[11.5px] text-muted md:block">
+            {formatBytes(archive.imgSize)} · {Math.ceil(archive.imgSize / 2048).toLocaleString()} × 2 KB
+          </span>
+          <span className="hidden shrink-0 items-center gap-3 text-[11.5px] text-muted 2xl:flex">
             {(Object.keys(KIND_LABELS) as Kind[]).map((k) =>
               kindCounts[k] ? (
                 <span key={k} className="flex items-center gap-1.5">
-                  <span className="inline-block size-2" style={{ background: KIND_COLORS[k] }} aria-hidden />
+                  <span className="swatch" style={{ background: KIND_COLORS[k] }} aria-hidden />
                   {KIND_LABELS[k]}
                 </span>
               ) : null,
             )}
-          </div>
-        </div>
+          </span>
+        </footer>
       )}
 
-      <Footer />
-
       {dragging && (
-        <div className="anim-fade-in fixed inset-0 z-30 grid place-items-center gap-4 bg-bg/80 p-6 backdrop-blur-[2px] md:grid-flow-col">
-          <div data-drop="add" className="ants grid h-full min-h-40 w-full max-w-md place-items-center bg-panel px-10 py-8 text-center">
-            <div className="pointer-events-none">
-              <div className="text-[16px] font-semibold">{archive ? 'Add to archive' : 'Drop an .img archive'}</div>
-              <div className="mt-1 text-muted">
+        <div className="anim-fade-in fixed inset-0 z-50 grid place-items-center gap-4 bg-bg/85 p-6 backdrop-blur-sm md:grid-flow-col">
+          <div data-drop="add" className="ants grid h-full max-h-80 min-h-40 w-full max-w-md place-items-center bg-panel px-10 py-8 text-center">
+            <div className="pointer-events-none flex flex-col items-center">
+              <Upload size={24} strokeWidth={1.5} className="text-accent-fg" aria-hidden />
+              <div className="mt-4 font-display text-[19px] font-semibold tracking-[-0.01em]">
+                {archive ? 'Add to archive' : 'Drop an .img archive'}
+              </div>
+              <div className="mt-1.5 max-w-[34ch] text-pretty text-muted">
                 {archive
                   ? 'Files with an existing name replace that entry. Mod zips are opened for you.'
-                  : 'For GTA III and Vice City, drop the .dir with it'}
+                  : 'For GTA III and Vice City, drop the .dir with it.'}
               </div>
             </div>
           </div>
           {archive && activeEntry && (
-            <div
-              data-drop="replace"
-              className="ants grid h-full min-h-40 w-full max-w-md place-items-center bg-panel px-10 py-8 text-center"
-            >
-              <div className="pointer-events-none">
-                <div className="text-[16px] font-semibold">
-                  Replace <span className="font-mono">{activeEntry.name}</span>
+            <div data-drop="replace" className="ants grid h-full max-h-80 min-h-40 w-full max-w-md place-items-center bg-panel px-10 py-8 text-center">
+              <div className="pointer-events-none flex flex-col items-center">
+                <Replace size={24} strokeWidth={1.5} className="text-accent-2" aria-hidden />
+                <div className="mt-4 font-display text-[19px] font-semibold tracking-[-0.01em]">
+                  Replace <span className="font-mono text-[17px] font-medium">{activeEntry.name}</span>
                 </div>
-                <div className="mt-1 text-muted">Whatever its file name, the dropped file becomes this entry's data.</div>
+                <div className="mt-1.5 max-w-[34ch] text-pretty text-muted">Whatever its file name, the dropped file becomes this entry’s data.</div>
               </div>
             </div>
           )}
@@ -742,14 +876,16 @@ export default function App() {
       )}
 
       {busy && (
-        <div className="anim-fade-in fixed inset-0 z-40 grid place-items-center bg-black/60 backdrop-blur-[2px]">
-          <div className="anim-scale-in w-80 border border-line-strong bg-panel p-4">
-            <div className="text-[13px] font-semibold">{busy.label}</div>
-            <div className="mt-3 h-2 overflow-hidden border border-line bg-panel-2">
-              <div className="stripes h-full" style={{ width: `${busy.total ? (busy.done / busy.total) * 100 : 0}%`, transition: 'width 120ms linear' }} />
+        <div className="anim-fade-in fixed inset-0 z-50 grid place-items-center bg-[rgb(0_0_0/0.55)] p-4" role="alertdialog" aria-label={busy.label}>
+          <div className="anim-pop w-full max-w-[360px] border border-line-strong bg-panel p-5 shadow-[0_24px_64px_-16px_rgb(0_0_0/0.6)]">
+            <div className="flex items-center gap-2.5 text-[14px] font-semibold">
+              <span className="spinner" aria-hidden />
+              <span className="truncate">{busy.label}</span>
             </div>
-            <div className="tnum mt-1.5 font-mono text-[11.5px] text-muted">
-              {busy.total > 10_000 ? `${formatBytes(busy.done)} of ${formatBytes(busy.total)}` : `${busy.done} of ${busy.total}`}
+            <Meter value={busy.total ? busy.done / busy.total : 0} segments={32} className="mt-4 h-2 w-full" />
+            <div className="tnum mt-2 flex justify-between font-mono text-[11.5px] text-muted">
+              <span>{busy.total > 10_000 ? `${formatBytes(busy.done)} of ${formatBytes(busy.total)}` : `${busy.done} of ${busy.total}`}</span>
+              <span>{busy.total ? Math.floor((busy.done / busy.total) * 100) : 0}%</span>
             </div>
           </div>
         </div>
@@ -770,24 +906,29 @@ export default function App() {
             </>
           }
         >
-          <label className="block text-[12px] text-muted" htmlFor="rename-input">
-            New name, up to 23 characters, keep the extension
+          <label className="block text-[12.5px] text-muted" htmlFor="rename-input">
+            New name, up to 23 characters. Keep the extension.
           </label>
-          <input
-            id="rename-input"
-            className="field mt-1.5 w-full font-mono"
-            value={modal.value}
-            autoFocus
-            maxLength={23}
-            onChange={(e) => setModal({ ...modal, value: e.target.value })}
-            onKeyDown={(e) => e.key === 'Enter' && applyRename()}
-          />
+          <div className="relative mt-2">
+            <input
+              id="rename-input"
+              className="field h-9 w-full pr-14 font-mono"
+              value={modal.value}
+              autoFocus
+              maxLength={23}
+              onChange={(e) => setModal({ ...modal, value: e.target.value })}
+              onKeyDown={(e) => e.key === 'Enter' && applyRename()}
+            />
+            <span className="tnum pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 font-mono text-[11px] text-faint">
+              {modal.value.length}/23
+            </span>
+          </div>
         </Modal>
       )}
 
       {modal?.kind === 'save-in-place' && archive && stats && (
         <Modal
-          title={`Save ${archive.name}`}
+          title={`Overwrite ${archive.name}?`}
           onClose={() => setModal(null)}
           footer={
             <>
@@ -805,23 +946,26 @@ export default function App() {
         >
           <p>
             This rewrites <span className="font-mono">{archive.name}</span>
-            {archive.version === 1 ? ' and its .dir' : ''} on disk with {archive.entries.length.toLocaleString()} entries and no gaps
-            ({formatBytes(stats.rebuiltSize)}).
+            {archive.version === 1 ? ' and its .dir' : ''} on disk with {archive.entries.length.toLocaleString()} entries and no gaps (
+            {formatBytes(stats.rebuiltSize)}).
           </p>
-          <p className="mt-2 text-muted">Keep a backup of the original before overwriting a game archive.</p>
+          <p className="mt-3 flex gap-2 border border-warn/40 bg-warn/10 px-3 py-2 text-[12.5px]">
+            <TriangleAlert size={15} strokeWidth={1.75} className="mt-px shrink-0 text-warn" aria-hidden />
+            Keep a backup of the original before overwriting a game archive.
+          </p>
         </Modal>
       )}
 
       {modal?.kind === 'home' && (
         <Modal
-          title="Close the archive"
+          title="Close the archive?"
           onClose={() => setModal(null)}
           footer={
             <>
               <button className="btn" onClick={() => setModal(null)}>
                 Keep editing
               </button>
-              <button className="btn btn-primary" onClick={closeArchive}>
+              <button className="btn btn-destructive" onClick={closeArchive}>
                 Close without saving
               </button>
             </>
@@ -833,15 +977,15 @@ export default function App() {
 
       {modal?.kind === 'discard' && (
         <Modal
-          title="Discard changes"
+          title="Discard all changes?"
           onClose={() => setModal(null)}
           footer={
             <>
               <button className="btn" onClick={() => setModal(null)}>
                 Keep editing
               </button>
-              <button className="btn btn-primary" onClick={discard}>
-                Discard
+              <button className="btn btn-destructive" onClick={discard}>
+                Discard changes
               </button>
             </>
           }
@@ -855,55 +999,158 @@ export default function App() {
   )
 }
 
-function EmptyState({ onOpen }: { onOpen: () => void }) {
+const STEPS: [string, string][] = [
+  ['Drop the archive', 'gta3.img from the game’s models folder, with gta3.dir for GTA III and Vice City. It is read in place, even at 900 MB.'],
+  ['Find and look', 'Filter thousands of entries by name or type. Models open in 3D with their textures; texture dictionaries export as PNG.'],
+  ['Swap and save', 'Add, replace, rename and delete, then overwrite the archive or download a rebuilt copy.'],
+]
+
+const GAME_CARDS: Record<Palette, { format: string; files: string; card: string }> = {
+  iii: { format: 'IMG v1', files: 'gta3.img + gta3.dir', card: '#14171b' },
+  vc: { format: 'IMG v1', files: 'gta3.img + gta3.dir', card: '#1b1240' },
+  sa: { format: 'IMG v2', files: 'gta3.img', card: '#221a10' },
+}
+
+// an illustrative archive layout: entries of each kind, with the gaps edits leave behind
+const LAYOUT: { kind: Kind; w: number; gap?: number }[] = Array.from({ length: 26 }, (_, i) => ({
+  kind: (['dff', 'dff', 'dff', 'txd', 'col', 'ifp', 'dff', 'txd'] as Kind[])[(i * 5) % 8],
+  w: 1 + ((i * 7) % 5),
+  gap: i % 4 === 3 ? 2 + (i % 3) : undefined,
+}))
+
+function SectionTitle({ id, title, children }: { id?: string; title: string; children?: ReactNode }) {
   return (
-    <div className="grid flex-1 place-items-center overflow-auto p-6">
-      <div className="w-full max-w-2xl">
-        <div className="anim-fade-up">
-          <Brand size="lg" />
-          <p className="mt-3 max-w-[52ch] text-[14px] text-muted">
-            Open the archives of GTA III, Vice City and San Andreas, edit them, and look at every model and texture inside. Nothing leaves your machine.
-          </p>
-        </div>
-        <button
-          className="anim-fade-up delay-1 group mt-8 grid w-full place-items-center border border-dashed border-line-strong bg-panel px-6 py-14 text-center transition-colors hover:border-accent"
-          onClick={onOpen}
-        >
-          <span
-            className="grid size-10 place-items-center border border-line-strong text-muted transition-all duration-300 group-hover:-translate-y-1 group-hover:border-accent group-hover:text-accent"
-            aria-hidden
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square">
-              <path d="M12 4v12M6 10l6-6 6 6M4 20h16" />
-            </svg>
-          </span>
-          <span className="mt-4 text-[17px] font-semibold">Drop gta3.img here, or click to open</span>
-          <span className="mt-1.5 max-w-[46ch] text-muted">
-            San Andreas archives are a single .img. GTA III and Vice City archives come as an .img with a .dir, drop both together.
-          </span>
-        </button>
-        <dl className="anim-fade-up delay-2 mt-8 grid grid-cols-1 border border-line sm:grid-cols-2">
-          {[
-            ['Stays on your machine', 'Archives are read in place, even the 900 MB gta3.img of San Andreas.'],
-            ['Edit and rebuild', 'Add, replace, rename and delete entries, then save a compact archive without gaps.'],
-            ['See the models', 'DFF models open in 3D, characters standing, with textures found on their own. Export any texture as PNG.'],
-            [
-              'Write back in place',
-              hasFileSystemAccess
-                ? 'This browser can overwrite the archive directly.'
-                : 'This browser downloads the rebuilt archive; Chrome and Edge can overwrite in place.',
-            ],
-          ].map(([title, body], i) => (
-            <div key={title} className={`px-4 py-3 text-[12.5px] ${i % 2 ? 'sm:border-l sm:border-line' : ''} ${i >= 2 ? 'border-t border-line' : ''}`}>
-              <dt className="font-semibold">{title}</dt>
-              <dd className="mt-0.5 text-muted">{body}</dd>
-            </div>
-          ))}
-        </dl>
-        <p className="anim-fade-up delay-3 mt-4 text-[11.5px] text-faint">
-          <span className="kbd">Ctrl</span> <span className="kbd">O</span> opens, <span className="kbd">Ctrl</span> <span className="kbd">S</span> saves.
-        </p>
-      </div>
+    <div id={id} className="reveal scroll-mt-8">
+      <h2 className="font-display text-[clamp(32px,4vw,48px)] leading-[1.05] font-bold tracking-[-0.03em] text-balance">{title}</h2>
+      {children && <p className="mt-3.5 max-w-[52ch] text-[17px] leading-relaxed text-pretty text-muted">{children}</p>}
     </div>
+  )
+}
+
+/** The start screen: the detected game's horizon under the headline, then how it works. */
+function Landing({ onOpen, replay }: { onOpen: () => void; replay: number }) {
+  const main = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (replay) main.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [replay])
+  return (
+    <main ref={main} className="anim-fade-in relative min-h-0 flex-1 overflow-y-auto scroll-smooth">
+      <section className="relative">
+        <div className="sky-bands relative overflow-hidden border-b-[3px] border-accent-2">
+          <div className="flex flex-col items-center gap-6 px-5 pt-[clamp(40px,8vh,88px)] pb-[clamp(48px,7vh,80px)] text-center">
+            <h1 className="anim-rise max-w-[16ch] font-display text-[clamp(44px,6.4vw,88px)] leading-[0.98] font-bold tracking-[-0.03em] text-balance">
+              Your GTA archives, opened in the browser.
+            </h1>
+            <p className="anim-rise delay-1 max-w-[50ch] text-[17px] leading-relaxed text-pretty text-muted md:text-[18px]">
+              Browse, extract, replace and rebuild <span className="font-mono text-[15.5px] text-text">gta3.img</span> for GTA III, Vice City and San
+              Andreas. Every model opens in 3D with its textures, and nothing is uploaded.
+            </p>
+            <div className="anim-rise delay-2 flex flex-wrap items-center justify-center gap-3">
+              <button className="btn btn-primary btn-lg" onClick={onOpen}>
+                <FolderOpen size={18} strokeWidth={1.75} aria-hidden />
+                Open an archive
+              </button>
+              <a className="btn btn-lg border-line-strong bg-bg/50 font-medium" href="#how">
+                See how it works
+              </a>
+            </div>
+            <span className="anim-rise delay-3 font-mono text-[13px] text-muted">
+              or drop gta3.img anywhere<span className="hidden sm:inline"> · Ctrl O</span>
+            </span>
+          </div>
+          <Horizon replay={replay} />
+        </div>
+
+        <div className="sea-fade px-5 pb-10 md:px-8">
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-[1200px] px-5 pt-28 md:px-8">
+        <SectionTitle id="how" title="From the game folder and back." />
+        <ol className="reveal mt-10 grid gap-px border border-line bg-line sm:grid-cols-3">
+          {STEPS.map(([title, body], i) => (
+            <li key={title} className="flex flex-col gap-2.5 bg-bg px-7 pt-7 pb-8">
+              <span className="font-mono text-[13px] text-accent-2">{i + 1}</span>
+              <h3 className="font-display text-[22px] font-bold tracking-[-0.02em]">{title}</h3>
+              <p className="text-[15px] leading-relaxed text-pretty text-muted">{body}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="mx-auto flex max-w-[1200px] flex-wrap items-center gap-12 px-5 pt-28 md:px-8">
+        <div className="flex-[1_1_380px]">
+          <SectionTitle title="Rebuilt without gaps.">
+            Every replace and delete leaves holes in an IMG archive. Saving writes a compact one, sector by sector, and Chrome and Edge overwrite the file
+            on disk in place.
+          </SectionTitle>
+        </div>
+        <div className="flex flex-[1_1_480px] flex-col gap-3" aria-hidden>
+          <div className="reveal-grow flex h-7 gap-0.5">
+            {LAYOUT.flatMap((b, i) => [
+              <div key={i} style={{ flex: b.w, background: KIND_COLORS[b.kind] }} />,
+              ...(b.gap ? [<div key={`g${i}`} className="bg-panel-3" style={{ flex: b.gap }} />] : []),
+            ])}
+          </div>
+          <span className="font-mono text-[12px] text-muted">before · with gaps</span>
+          <div className="reveal-compact mt-3 flex h-7 gap-0.5">
+            {LAYOUT.map((b, i) => (
+              <div key={i} style={{ flex: b.w, background: KIND_COLORS[b.kind] }} />
+            ))}
+            <div style={{ flex: 12 }} />
+          </div>
+          <span className="font-mono text-[12px] text-accent-2">after saving · compact</span>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-[1200px] px-5 pt-28 md:px-8">
+        <SectionTitle id="games" title="The game is recognized for you.">
+          Drop the archive and the editor reads which game it belongs to, then dresses itself in that game’s colors.
+        </SectionTitle>
+        <ul className="reveal mt-10 grid gap-4 sm:grid-cols-3">
+          {PALETTES.map((p) => {
+            const g = GAME_CARDS[p.key]
+            return (
+              <li
+                key={p.key}
+                className="group flex min-h-[200px] flex-col border border-white/10 transition-[translate,box-shadow] duration-300 ease-out hover:-translate-y-1 motion-reduce:hover:translate-y-0"
+                style={{ background: g.card, color: p.text }}
+              >
+                <span className="px-5 pt-5 font-mono text-[12px]" style={{ color: p.muted }}>
+                  {p.year} · {g.format}
+                </span>
+                <span className="mt-auto px-5 font-display text-[30px] font-bold tracking-[-0.03em]">{p.name}</span>
+                <span className="px-5 pt-2 pb-5 font-mono text-[13px]" style={{ color: p.muted }}>
+                  {g.files}
+                </span>
+                <span className="flex h-1.5 transition-[height] duration-300 ease-out group-hover:h-2.5" aria-hidden>
+                  <span className="flex-[3]" style={{ background: p.swatches[1] }} />
+                  <span className="flex-1" style={{ background: p.swatches[2] }} />
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      </section>
+
+      <section className="mt-36" aria-labelledby="cta-title">
+        <div className="sky-bands h-56 border-b-[3px] border-accent-2" aria-hidden />
+        <div className="sea-fade">
+          <div className="reveal mx-auto flex max-w-[1200px] flex-wrap items-center gap-8 px-5 pt-16 pb-[72px] md:px-8">
+            <div className="flex-[1_1_360px]">
+              <h2 id="cta-title" className="font-display text-[clamp(32px,4vw,52px)] leading-none font-bold tracking-[-0.03em]">
+                Drop your gta3.img.
+              </h2>
+              <p className="mt-2.5 text-[16px] text-muted">GTA III and Vice City need gta3.dir with it.</p>
+            </div>
+            <button className="btn btn-primary btn-lg" onClick={onOpen}>
+              <FolderOpen size={18} strokeWidth={1.75} aria-hidden />
+              Open an archive
+            </button>
+          </div>
+        </div>
+      </section>
+      <Footer />
+    </main>
   )
 }

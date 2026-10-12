@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ImgArchive, ImgEntry } from '../lib/img/archive'
 import { SECTOR, alignToSector } from '../lib/img/format'
 import { formatBytes } from '../lib/detect'
-import { KIND_COLORS, kindOf } from '../lib/kinds'
+import { KIND_VARS, kindOf, type Kind } from '../lib/kinds'
 
 interface Props {
   archive: ImgArchive
@@ -51,6 +51,8 @@ export function SectorMap({ archive, selected, activeId, onPick }: Props) {
       if (!ctx) return
       ctx.scale(dpr, dpr)
       const style = getComputedStyle(canvas)
+      const kindColor = {} as Record<Kind, string>
+      for (const k of Object.keys(KIND_VARS) as Kind[]) kindColor[k] = style.getPropertyValue(KIND_VARS[k]).trim() || '#888'
       ctx.fillStyle = style.getPropertyValue('--bg').trim() || '#000'
       ctx.fillRect(0, 0, width, height)
 
@@ -68,7 +70,7 @@ export function SectorMap({ archive, selected, activeId, onPick }: Props) {
           highlights.push(p)
           continue
         }
-        ctx.fillStyle = KIND_COLORS[kindOf(p.entry.name)]
+        ctx.fillStyle = kindColor[kindOf(p.entry.name)]
         ctx.globalAlpha = p.entry.source.kind === 'archive' ? 0.55 : 0.9
         ctx.fillRect(x, 2, w, height - 4)
       }
@@ -95,14 +97,11 @@ export function SectorMap({ archive, selected, activeId, onPick }: Props) {
     draw()
     const ro = new ResizeObserver(draw)
     ro.observe(canvas)
-    const mq = window.matchMedia('(prefers-color-scheme: light)')
-    mq.addEventListener('change', draw)
-    // the theme toggle stamps data-theme on <html>
+    // the appearance picker stamps data-theme and data-palette on <html>
     const mo = new MutationObserver(draw)
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette'] })
     return () => {
       ro.disconnect()
-      mq.removeEventListener('change', draw)
       mo.disconnect()
     }
   }, [archive, selected, activeId])
@@ -129,7 +128,7 @@ export function SectorMap({ archive, selected, activeId, onPick }: Props) {
     <div className="relative">
       <canvas
         ref={canvasRef}
-        className="block h-4 w-full cursor-crosshair border border-line"
+        className="block h-3.5 w-full cursor-crosshair"
         aria-label="Archive sector map"
         onMouseMove={(e) => setHover(locate(e.clientX))}
         onMouseLeave={() => setHover(null)}
@@ -140,8 +139,8 @@ export function SectorMap({ archive, selected, activeId, onPick }: Props) {
       />
       {hover && (
         <div
-          className="anim-fade-in pointer-events-none absolute bottom-full mb-1.5 max-w-[300px] border border-line-strong bg-panel px-2 py-1 text-[11.5px] whitespace-nowrap"
-          style={{ left: Math.min(hover.x, (canvasRef.current?.clientWidth ?? 300) - 200) }}
+          className="pointer-events-none absolute bottom-full z-20 mb-2 max-w-[320px] border border-line-strong bg-panel-2 px-2.5 py-1.5 text-[12px] whitespace-nowrap shadow-[0_8px_24px_-8px_rgb(0_0_0/0.5)]"
+          style={{ left: Math.max(0, Math.min(hover.x - 12, (canvasRef.current?.clientWidth ?? 300) - 240)) }}
         >
           {hover.placed ? (
             <>

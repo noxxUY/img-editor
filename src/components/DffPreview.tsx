@@ -15,6 +15,8 @@ import {
 } from '../lib/rw/three'
 import type { IdeMap } from '../lib/ide'
 import { bestTxdForTextures, type TxdIndex } from '../lib/txdIndex'
+import { cssVar } from '../lib/theme'
+import { ChevronUp, FolderInput, Scan } from 'lucide-react'
 
 interface ViewerApi {
   setModel(object: THREE.Object3D | null): void
@@ -35,6 +37,8 @@ function useViewer(container: React.RefObject<HTMLDivElement | null>) {
     renderer.outputColorSpace = THREE.SRGBColorSpace
     el.appendChild(renderer.domElement)
     renderer.domElement.style.display = 'block'
+    renderer.domElement.style.width = '100%'
+    renderer.domElement.style.height = '100%'
 
     const scene = new THREE.Scene()
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 5000)
@@ -82,10 +86,11 @@ function useViewer(container: React.RefObject<HTMLDivElement | null>) {
     }
     loop()
 
-    const gridColors = () => {
-      const dark = getComputedStyle(document.documentElement).colorScheme.includes('dark')
-      return dark ? [0x7a7c85, 0x3a3b41] : [0x9a9ba3, 0xd6d6db]
-    }
+    // the grid takes its two colors from the current palette
+    const gridColors = (): [THREE.ColorRepresentation, THREE.ColorRepresentation] => [
+      cssVar('--grid-major', '#7a7c85'),
+      cssVar('--grid-minor', '#3a3b41'),
+    ]
 
     const fit = () => {
       if (!current) return
@@ -132,7 +137,7 @@ function useViewer(container: React.RefObject<HTMLDivElement | null>) {
       }
       colors.needsUpdate = true
     })
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette'] })
 
     api.current = {
       setModel(object) {
@@ -329,94 +334,41 @@ export function DffPreview({ archive, entry, bytes, help }: Props) {
         : ''
 
   const toggle = (id: string, label: string, value: boolean, set: (v: boolean) => void) => (
-    <label
-      className={`chip cursor-pointer ${value ? 'chip-on' : ''}`}
-      htmlFor={id}
-    >
+    <label className="toggle" htmlFor={id}>
       <input id={id} type="checkbox" className="sr-only" checked={value} onChange={(e) => set(e.target.checked)} />
-      <span className={`inline-block size-2 border ${value ? 'border-accent bg-accent' : 'border-line-strong'}`} aria-hidden />
+      <span className="toggle-box" aria-hidden />
       {label}
     </label>
   )
 
+  const warnings = dff && stats ? [stats.texturesMissing.length ? `Missing ${stats.texturesMissing.join(', ')}` : '', ...dff.warnings].filter(Boolean) : []
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2 border-b border-line bg-panel px-3 py-2">
-        {toggle('opt-textures', 'Textures', textured, setTextured)}
-        {toggle('opt-wireframe', 'Wireframe', wireframe, setWireframe)}
-        {toggle('opt-grid', 'Grid', grid, setGrid)}
-        {toggle('opt-turntable', 'Turntable', turntable, setTurntable)}
-        {stats?.hasNightColors && toggle('opt-night', 'Night colors', night, setNight)}
-        {stats?.hasDamagedParts && toggle('opt-damaged', 'Damaged parts', showDamaged, setShowDamaged)}
-        {stats?.hasLodParts && toggle('opt-lod', 'LOD parts', showLod, setShowLod)}
-        <span className="grow" />
-        <div className="relative">
-          <input
-            id="txd-picker"
-            className="field h-7 w-60 font-mono text-[12px]"
-            placeholder="Search a .txd"
-            value={txdOpen ? txdQuery : (textures.name ?? (choice.kind === 'none' ? 'no textures' : 'no matching .txd'))}
-            onFocus={() => {
-              setTxdOpen(true)
-              setTxdQuery('')
-            }}
-            onBlur={() => window.setTimeout(() => setTxdOpen(false), 150)}
-            onChange={(e) => setTxdQuery(e.target.value)}
-            aria-label="Texture dictionary to use"
-            title={sourceText}
-          />
-          {txdOpen && (
-            <div className="anim-scale-in absolute top-full right-0 z-10 mt-1 max-h-72 w-72 overflow-auto border border-line-strong bg-panel py-1">
-              <button className="block w-full px-3 py-1 text-left text-[12px] hover:bg-selection" onMouseDown={() => setChoice({ kind: 'auto' })}>
-                Automatic {auto ? `(${auto.entry.name})` : '(nothing found)'}
-              </button>
-              <button className="block w-full px-3 py-1 text-left text-[12px] hover:bg-selection" onMouseDown={() => setChoice({ kind: 'none' })}>
-                No textures
-              </button>
-              <div className="my-1 border-t border-line" />
-              {txdMatches.map((e) => (
-                <button
-                  key={e.id}
-                  className="block w-full truncate px-3 py-1 text-left font-mono text-[12px] hover:bg-selection"
-                  onMouseDown={() => setChoice({ kind: 'entry', id: e.id })}
-                >
-                  {e.name}
-                </button>
-              ))}
-              {txdMatches.length === 0 && <div className="px-3 py-1 text-[12px] text-muted">No .txd matches</div>}
-            </div>
-          )}
-        </div>
-        <button className="btn h-7" onClick={() => api.current?.fit()}>
-          Reset view
-        </button>
-      </div>
-
       {choice.kind === 'auto' && !auto && modelTextures.length === 0 && dff && dff.geometries.length > 0 && (
-        <div className="border-b border-line bg-selection px-3 py-2 text-[12px] text-muted">
-          This model names no textures and no .txd shares its name. Pick a .txd above and its texture will be applied.
+        <div className="border-b border-line bg-selection px-4 py-2 text-[12.5px] text-muted md:px-5">
+          This model names no textures and no .txd shares its name. Pick a .txd below and its texture will be applied.
         </div>
       )}
       {choice.kind === 'auto' && !auto && modelTextures.length > 0 && (
-        <div className="anim-fade-in flex flex-wrap items-center gap-3 border-b border-line bg-selection px-3 py-2 text-[12px]">
+        <div className="anim-fade-in flex flex-wrap items-center gap-3 border-b border-line bg-selection px-4 py-2 text-[12.5px] md:px-5">
           {help.indexing ? (
             <>
               <span className="spinner" aria-hidden />
               <span className="tnum text-muted">
-                Reading texture names of every .txd, {help.indexing.done.toLocaleString()} of {help.indexing.total.toLocaleString()}
+                Reading the texture names of every .txd, {help.indexing.done.toLocaleString()} of {help.indexing.total.toLocaleString()}
               </span>
-              <div className="h-1.5 w-40 border border-line bg-panel">
-                <div className="h-full bg-accent" style={{ width: `${(help.indexing.done / Math.max(1, help.indexing.total)) * 100}%`, transition: 'width 150ms linear' }} />
-              </div>
+              <Meter value={help.indexing.done / Math.max(1, help.indexing.total)} />
             </>
           ) : (
             <>
-              <span className="text-muted">
+              <span className="flex-1 text-muted">
                 {help.index
                   ? `None of the ${help.index.txdCount.toLocaleString()} texture dictionaries in this archive has this model's textures. Its .txd may live in another archive.`
                   : 'No .txd shares this model’s name.'}
               </span>
-              <button className="btn h-7" onClick={() => void help.onLoadIde()}>
+              <button className="btn btn-sm" onClick={() => void help.onLoadIde()}>
+                <FolderInput size={14} strokeWidth={1.75} aria-hidden />
                 Load .ide files
               </button>
             </>
@@ -424,66 +376,130 @@ export function DffPreview({ archive, entry, bytes, help }: Props) {
         </div>
       )}
 
-      <div className="relative min-h-[260px] flex-1 overflow-hidden bg-bg">
+      <div className="sky relative min-h-[300px] flex-1 overflow-hidden">
         <div ref={container} className="absolute inset-0" />
         {/* a veil that fades away each time a model is (re)built, so the canvas itself never remounts */}
-        {revealKey > 0 && <div key={revealKey} className="anim-veil pointer-events-none absolute inset-0 bg-bg" aria-hidden />}
+        {revealKey > 0 && <div key={revealKey} className="anim-veil sky pointer-events-none absolute inset-0" aria-hidden />}
         {parsed.error && (
-          <div className="absolute inset-0 grid place-items-center p-6 text-center text-danger">
-            Could not read this model: {parsed.error}
-          </div>
+          <div className="absolute inset-0 grid place-items-center p-6 text-center text-danger">Could not read this model: {parsed.error}</div>
         )}
+
         {dff && (
-          <div className="pointer-events-none absolute top-2 left-3 font-mono text-[11px] text-faint">
-            RenderWare {dff.versionText} · {gameForVersion(dff.version)}
+          <div className="pointer-events-none absolute top-4 left-4 font-mono text-[11px] leading-[16px] text-muted md:left-5">
+            <div>RenderWare {dff.versionText}</div>
+            <div className="text-faint">{gameForVersion(dff.version)}</div>
           </div>
         )}
+
+        {/* the HUD: model numbers in the top-right corner, where the games keep theirs */}
+        {dff && stats && (
+          <dl className="pointer-events-none absolute top-4 right-4 hidden grid-cols-[auto_auto] gap-x-4 gap-y-0.5 text-right sm:grid md:right-5">
+            {[
+              ['Vertices', stats.vertices.toLocaleString()],
+              ['Triangles', stats.triangles.toLocaleString()],
+              ['Materials', String(stats.materials)],
+              ['Frames / atomics', `${stats.frames} / ${stats.atomics}`],
+              stats.paintSlots.length ? ['Vehicle paint', stats.paintSlots.join(', ')] : ['Skinned', stats.skinned ? 'yes, rest pose' : 'no'],
+            ].map(([label, value]) => (
+              <div key={label} className="contents">
+                <dt className="label self-center">{label}</dt>
+                <dd className="tnum font-display text-[17px] leading-[22px] font-semibold tracking-[-0.01em] [text-shadow:0_1px_8px_var(--bg)]">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+
+        <div className="absolute inset-x-3 bottom-3 flex justify-center md:inset-x-5 md:bottom-4">
+          <div className="flex max-w-full flex-wrap items-center justify-center gap-1 border border-line-strong bg-panel/95 p-1 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.55)]">
+            {toggle('opt-textures', 'Textures', textured, setTextured)}
+            {toggle('opt-wireframe', 'Wireframe', wireframe, setWireframe)}
+            {toggle('opt-grid', 'Grid', grid, setGrid)}
+            {toggle('opt-turntable', 'Turntable', turntable, setTurntable)}
+            {stats?.hasNightColors && toggle('opt-night', 'Night colors', night, setNight)}
+            {stats?.hasDamagedParts && toggle('opt-damaged', 'Damaged', showDamaged, setShowDamaged)}
+            {stats?.hasLodParts && toggle('opt-lod', 'LOD', showLod, setShowLod)}
+            <span className="mx-0.5 hidden h-5 w-px bg-line sm:block" aria-hidden />
+            <div className="relative">
+              <span className="label pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2">txd</span>
+              <input
+                id="txd-picker"
+                className="field h-7 w-52 pr-7 pl-10 font-mono text-[12px]"
+                placeholder="Search a .txd"
+                value={txdOpen ? txdQuery : (textures.name ?? (choice.kind === 'none' ? 'no textures' : 'no matching .txd'))}
+                onFocus={() => {
+                  setTxdOpen(true)
+                  setTxdQuery('')
+                }}
+                onBlur={() => window.setTimeout(() => setTxdOpen(false), 150)}
+                onChange={(e) => setTxdQuery(e.target.value)}
+                aria-label="Texture dictionary to use"
+                title={sourceText}
+              />
+              <ChevronUp size={13} strokeWidth={2} className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-faint" aria-hidden />
+              {txdOpen && (
+                <div className="anim-pop absolute right-0 bottom-full z-20 mb-2 max-h-72 w-72 origin-bottom-right overflow-auto overscroll-contain border border-line-strong bg-panel py-1 shadow-[0_12px_32px_-8px_rgb(0_0_0/0.45)]">
+                  <button
+                    className="flex w-full cursor-pointer items-baseline gap-2 px-3 py-1.5 text-left text-[12.5px] transition-colors duration-100 hover:bg-panel-2"
+                    onMouseDown={() => setChoice({ kind: 'auto' })}
+                  >
+                    Automatic
+                    <span className="truncate font-mono text-[11.5px] text-muted">{auto ? auto.entry.name : 'nothing found'}</span>
+                  </button>
+                  <button
+                    className="block w-full cursor-pointer px-3 py-1.5 text-left text-[12.5px] transition-colors duration-100 hover:bg-panel-2"
+                    onMouseDown={() => setChoice({ kind: 'none' })}
+                  >
+                    No textures
+                  </button>
+                  <div className="my-1 border-t border-line" />
+                  {txdMatches.map((e) => (
+                    <button
+                      key={e.id}
+                      className="block w-full cursor-pointer truncate px-3 py-1.5 text-left font-mono text-[12px] transition-colors duration-100 hover:bg-panel-2"
+                      onMouseDown={() => setChoice({ kind: 'entry', id: e.id })}
+                    >
+                      {e.name}
+                    </button>
+                  ))}
+                  {txdMatches.length === 0 && <div className="px-3 py-1.5 text-[12.5px] text-muted">No .txd matches</div>}
+                </div>
+              )}
+            </div>
+            <button className="btn btn-ghost btn-icon btn-sm" onClick={() => api.current?.fit()} title="Reset view" aria-label="Reset view">
+              <Scan size={15} strokeWidth={1.75} />
+            </button>
+          </div>
+        </div>
       </div>
 
       {dff && stats && (
-        <div className="grid grid-cols-2 border-t border-line bg-panel sm:grid-cols-4">
-          <Stat label="Vertices" value={stats.vertices.toLocaleString()} />
-          <Stat label="Triangles" value={stats.triangles.toLocaleString()} />
-          <Stat label="Materials" value={String(stats.materials)} />
-          <Stat label="Frames / atomics" value={`${stats.frames} / ${stats.atomics}`} />
-          <Stat
-            label="Textures"
-            value={
-              textures.name
+        <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-t border-line bg-panel px-4 py-2 text-[12.5px] md:px-5">
+          <span className="min-w-0">
+            <span className="label mr-2">Textures</span>
+            <span className="font-mono text-[12px]">
+              {textures.name
                 ? `${stats.texturesUsed.length} from ${textures.name}${sourceText ? ` (${sourceText})` : ''}`
-                : `${modelTextures.length} referenced, none loaded`
-            }
-            wide
-          />
-          <Stat
-            label={stats.paintSlots.length ? 'Vehicle paint' : 'Skinned'}
-            value={stats.paintSlots.length ? stats.paintSlots.join(', ') : stats.skinned ? 'yes, rest pose' : 'no'}
-          />
-          <Stat
-            label="Warnings"
-            value={
-              [
-                stats.texturesMissing.length ? `missing ${stats.texturesMissing.join(', ')}` : '',
-                ...dff.warnings,
-              ]
-                .filter(Boolean)
-                .join('. ') || 'none'
-            }
-            warn={stats.texturesMissing.length > 0 || dff.warnings.length > 0}
-          />
+                : `${modelTextures.length} referenced, none loaded`}
+            </span>
+          </span>
+          <span className="tnum font-mono text-[12px] text-muted sm:hidden">
+            {stats.vertices.toLocaleString()} verts · {stats.triangles.toLocaleString()} tris
+          </span>
+          {warnings.length > 0 && <span className="min-w-0 text-warn">{warnings.join('. ')}</span>}
         </div>
       )}
     </div>
   )
 }
 
-function Stat({ label, value, wide, warn }: { label: string; value: string; wide?: boolean; warn?: boolean }) {
+/** A thin segmented progress meter, the same one the busy dialog uses. */
+export function Meter({ value, segments = 24, className = 'w-40' }: { value: number; segments?: number; className?: string }) {
+  const filled = Math.round(Math.max(0, Math.min(1, value)) * segments)
   return (
-    <div className={`flex min-w-0 flex-col border-t border-l border-line px-3 py-1.5 first:border-l-0 sm:[&:nth-child(-n+4)]:border-t-0 ${wide ? 'col-span-2' : ''}`}>
-      <span className="text-[10.5px] text-muted">{label}</span>
-      <span className={`tnum truncate font-mono text-[12px] ${warn ? 'text-warn' : ''}`} title={value}>
-        {value}
-      </span>
+    <div className={`flex h-1.5 gap-[2px] ${className}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(value * 100)}>
+      {Array.from({ length: segments }, (_, i) => (
+        <span key={i} className={`flex-1 transition-colors duration-150 ${i < filled ? 'bg-accent' : 'bg-line'}`} />
+      ))}
     </div>
   )
 }

@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
+import { ArrowDown, ArrowUp, SearchX } from 'lucide-react'
 import type { ImgEntry } from '../lib/img/archive'
 import { SECTOR } from '../lib/img/format'
 import { formatBytes } from '../lib/detect'
 import { KIND_COLORS, kindOf } from '../lib/kinds'
 import type { SortState } from '../lib/ops'
 
-const ROW = 28
+const ROW = 30
 const OVERSCAN = 12
-const GRID = 'grid-cols-[32px_minmax(0,1fr)_52px_84px_72px]'
+const SORTS: [SortState['key'], string][] = [
+  ['order', 'Archive order'],
+  ['name', 'Name'],
+  ['size', 'Size'],
+  ['status', 'Changes'],
+]
 
 interface Props {
   entries: ImgEntry[]
@@ -151,51 +157,64 @@ export function EntryList({
   const rows = entries.slice(first, last)
   const staggered = performance.now() - mountedAt.current < 600
 
-  const header = (key: SortState['key'], label: string, className = '') => {
-    const on = sort.key === key
-    return (
-      <button
-        className={`flex h-full items-center gap-1 text-left text-[11.5px] font-semibold transition-colors hover:text-text ${on ? 'text-text' : 'text-muted'} ${className}`}
-        onClick={() => onSort({ key, dir: on ? ((sort.dir * -1) as 1 | -1) : 1 })}
-      >
-        {label}
-        <span className={`text-[9px] transition-opacity ${on ? 'opacity-100' : 'opacity-0'}`} aria-hidden>
-          {sort.dir === 1 ? '▲' : '▼'}
-        </span>
-      </button>
-    )
-  }
-
   const allSelected = entries.length > 0 && entries.every((e) => selected.has(e.id))
+  const someSelected = !allSelected && entries.some((e) => selected.has(e.id))
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className={`grid h-8 shrink-0 ${GRID} items-center border-b border-line bg-panel px-2`}>
+      <div className="flex h-9 shrink-0 items-center gap-2.5 border-b border-line px-3">
         <input
           type="checkbox"
-          aria-label="Select all visible"
+          className="check"
+          aria-label="Select all shown"
           checked={allSelected}
-          onChange={() =>
-            onSelectionChange(allSelected ? new Set() : new Set(entries.map((e) => e.id)), activeId)
-          }
+          ref={(el) => {
+            if (el) el.indeterminate = someSelected
+          }}
+          onChange={() => onSelectionChange(allSelected ? new Set() : new Set(entries.map((e) => e.id)), activeId)}
         />
-        {header('name', 'Name')}
-        {header('order', 'Order')}
-        {header('size', 'Size', 'justify-end')}
-        {header('status', 'Changes', 'justify-end')}
+        <span className="tnum flex-1 text-[12px] text-muted">
+          {entries.length.toLocaleString()} {entries.length === 1 ? 'entry' : 'entries'}
+        </span>
+        <label className="flex items-center gap-1.5 text-[12px] text-muted">
+          <span className="sr-only sm:not-sr-only">Sort</span>
+          <select
+            className="field h-6 cursor-pointer border-transparent bg-transparent px-1 text-[12px] font-medium text-text hover:border-line-strong"
+            value={sort.key}
+            onChange={(e) => onSort({ key: e.target.value as SortState['key'], dir: 1 })}
+          >
+            {SORTS.map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          className="btn btn-ghost btn-icon btn-sm -mr-1.5 size-6"
+          onClick={() => onSort({ ...sort, dir: (sort.dir * -1) as 1 | -1 })}
+          aria-label={sort.dir === 1 ? 'Ascending, switch to descending' : 'Descending, switch to ascending'}
+          title={sort.dir === 1 ? 'Ascending' : 'Descending'}
+        >
+          {sort.dir === 1 ? <ArrowUp size={14} strokeWidth={1.75} /> : <ArrowDown size={14} strokeWidth={1.75} />}
+        </button>
       </div>
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-auto bg-bg outline-none"
+        className="min-h-0 flex-1 overflow-auto overscroll-contain focus-visible:shadow-[inset_0_0_0_1px_var(--accent-2)] focus-visible:outline-none"
         tabIndex={0}
         role="listbox"
+        aria-label="Entries"
         aria-multiselectable="true"
         aria-activedescendant={activeId !== null ? `entry-${activeId}` : undefined}
         onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
         onKeyDown={onKeyDown}
       >
         {entries.length === 0 ? (
-          <div className="p-6 text-center text-muted">No entries match.</div>
+          <div className="anim-fade-in flex flex-col items-center gap-2 px-6 py-12 text-center text-muted">
+            <SearchX size={20} strokeWidth={1.5} className="text-faint" aria-hidden />
+            <span>No entries match this filter.</span>
+          </div>
         ) : (
           <div style={{ height: entries.length * ROW, position: 'relative' }}>
             {rows.map((entry, i) => {
@@ -209,32 +228,38 @@ export function EntryList({
                   id={`entry-${entry.id}`}
                   role="option"
                   aria-selected={isSelected}
-                  className={`row absolute right-0 left-0 grid ${GRID} cursor-default items-center border-b border-line/70 px-2 text-[12.5px] transition-colors duration-100 ${
-                    isSelected ? 'bg-selection' : 'hover:bg-panel-2'
-                  } ${isActive ? 'shadow-[inset_2px_0_0_var(--accent)]' : ''} ${staggered ? 'anim-fade-up' : ''}`}
-                  style={{ top: index * ROW, height: ROW, animationDelay: staggered ? `${Math.min(i, 24) * 14}ms` : undefined }}
+                  className={`group absolute right-0 left-0 flex cursor-default items-center gap-2.5 px-3 text-[13px] transition-colors duration-100 ${
+                    isActive ? 'bg-selection text-text' : isSelected ? 'bg-selection/60' : 'hover:bg-panel-2/70'
+                  } ${staggered ? 'anim-fade-in' : ''}`}
+                  style={{ top: index * ROW, height: ROW, animationDelay: staggered ? `${Math.min(i, 20) * 12}ms` : undefined }}
                   onClick={(e) => onRowClick(e, index)}
                   onDoubleClick={() => onOpen(entry)}
                 >
                   <input
                     type="checkbox"
+                    className="check"
                     tabIndex={-1}
                     checked={isSelected}
                     aria-label={`Select ${entry.name}`}
                     onClick={(e) => e.stopPropagation()}
                     onChange={() => selectIndex(index, 'toggle')}
                   />
-                  <span className="flex min-w-0 items-center gap-2 font-mono">
-                    <span className="inline-block size-2 shrink-0" style={{ background: KIND_COLORS[kind] }} aria-hidden />
-                    <span className={`truncate ${isActive ? 'font-medium' : ''}`} title={entry.name}>
-                      {entry.name}
-                    </span>
+                  <span className="swatch" style={{ background: KIND_COLORS[kind] }} aria-hidden />
+                  <span
+                    className={`min-w-0 flex-1 truncate font-mono text-[12.5px] ${isActive ? 'font-medium' : isSelected ? '' : 'text-text/90'}`}
+                    title={entry.name}
+                  >
+                    {entry.name}
                   </span>
-                  <span className="tnum font-mono text-[11px] text-faint">{index + 1}</span>
-                  <span className="tnum text-right font-mono text-[11.5px] text-muted" title={`${Math.ceil(entry.size / SECTOR)} sectors`}>
+                  {entry.status !== 'original' && (
+                    <span className="shrink-0 font-mono text-[10.5px] font-medium text-accent-fg">{STATUS_TEXT[entry.status]}</span>
+                  )}
+                  <span
+                    className="tnum w-[62px] shrink-0 text-right font-mono text-[11.5px] text-muted"
+                    title={`${Math.ceil(entry.size / SECTOR)} sectors, #${index + 1} in this view`}
+                  >
                     {formatBytes(entry.size)}
                   </span>
-                  <span className="text-right text-[11.5px] font-medium text-accent">{STATUS_TEXT[entry.status]}</span>
                 </div>
               )
             })}
