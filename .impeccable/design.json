@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-12T00:31:42+00:00",
+  "generatedAt": "2026-10-12T01:15:56+00:00",
   "title": "Design System: noxx's IMG Editor",
   "extensions": {
     "colorMeta": {
@@ -593,7 +593,7 @@
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "Start-screen wordmark only, beside the 72px mark."
+        "purpose": "The landing headline only, centered, 16ch max."
       },
       "headline": {
         "displayName": "Headline",
@@ -613,7 +613,7 @@
       },
       "body-lead": {
         "displayName": "Lead",
-        "purpose": "The single start-screen paragraph, 46ch max."
+        "purpose": "Landing intro (50ch) and section intros (52ch); 18px from md."
       },
       "control": {
         "displayName": "Control",
@@ -626,6 +626,10 @@
       "label": {
         "displayName": "Group Label",
         "purpose": "Uppercase mono label naming a control or data group; never an eyebrow over a headline."
+      },
+      "section-title": {
+        "displayName": "Section Title",
+        "purpose": "Landing section headings and the closing call; steps at 22px, game names at 30px."
       }
     },
     "palettes": {
@@ -796,10 +800,12 @@
       }
     },
     "surfaces": {
-      "sky": "var(--sky) vertical gradient from ground into the palette's dusk; paints the start hero, the 3D stage and the reveal veil",
-      "skyGlow": "radial-gradient(55% 100% at 50% 100%, var(--sky-glow), transparent 72%) along the bottom of the start sky",
-      "horizonLine": "2px var(--accent-2) at 70% opacity where the start sky meets the page",
-      "checker": "16px checkerboard from --checker-a / --checker-b behind textures"
+      "sky": "var(--sky) vertical gradient from ground into the palette's dusk; paints the 3D stage and the reveal veil",
+      "skyGlow": "radial-gradient(60% 55% at 50% 100%, var(--sky-glow), transparent 70%) behind the landing sun",
+      "horizonLine": "3px solid var(--accent-2) under each landing sky",
+      "checker": "16px checkerboard from --checker-a / --checker-b behind textures",
+      "skyBands": ".sky-bands: ground for the top 18%, then 12%, 38% and 72% oklab mixes of --sky-low into the ground, ending on --sky-low; paints the landing hero and the closing call",
+      "seaFade": ".sea-fade: var(--sea) for 55%, then fades into var(--bg) under the horizon"
     },
     "shadows": [
       {
@@ -872,7 +878,7 @@
       {
         "name": "rise",
         "value": "300ms ease-out, from translateY(12px) blur(4px); 100ms stagger",
-        "purpose": "Start-screen entrance."
+        "purpose": "Landing hero entrance, staggered 100ms."
       },
       {
         "name": "veil",
@@ -888,6 +894,26 @@
         "name": "loops",
         "value": "ants 700ms, spinner 700ms, shimmer 1.1s, pulse 1.6s",
         "purpose": "Drop outline, busy, skeleton, unsaved dot; all stop under reduced motion."
+      },
+      {
+        "name": "scene-entrance",
+        "value": "900ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Horizon scenes: stripes open, sun and hills fade up from 0.97, palms and towers rise from the horizon, staggered."
+      },
+      {
+        "name": "scene-loops",
+        "value": "sway 5-9s alternate, flicker 7s, beacon 2.2s, rain 700ms",
+        "purpose": "Ambient life in the horizon scenes; stopped under reduced motion."
+      },
+      {
+        "name": "scroll-reveal",
+        "value": "animation-timeline: view(); rise 32px",
+        "purpose": "Landing sections reveal on scroll; static without scroll timelines."
+      },
+      {
+        "name": "brand-wipe",
+        "value": "520ms expo-out, 70ms stagger",
+        "purpose": "Logo click: stripes open, horizon slides back in."
       }
     ],
     "breakpoints": [
@@ -912,8 +938,10 @@
       "topBar": "52px",
       "workspaceXl": "340px | minmax(0,1fr) | 288px",
       "workspaceMd": "minmax(290px,340px) | minmax(0,1fr); rail as 300px drawer",
-      "startMaxWidth": "1120px",
-      "modalMaxWidth": "440px"
+      "modalMaxWidth": "440px",
+      "landingMaxWidth": "1200px",
+      "landingSectionGap": "112px",
+      "horizonHeight": "clamp(170px, 19vw, 270px)"
     }
   },
   "components": [
@@ -1000,12 +1028,13 @@
   ],
   "narrative": {
     "northStar": "The Game's Own Sky",
-    "overview": "The workspace is a dark, dense tool for modders that takes its colors from whichever GTA trilogy game the opened archive belongs to. Vice City at night is the default: an indigo ground, hot pink as the single loud voice, and an ocean cyan that marks the horizon and the keyboard focus. San Andreas (sunset amber and Grove green) and GTA III (flare orange and steel blue) are full alternative palettes, each with a night and a day variant. When an archive is opened and its game is detected, the new palette rises over the old one like a horizon (a 900ms clip-path view transition). Every token in this file is the Vice City night value. The other five variants redefine the same custom properties on `<html data-palette data-theme>`, and components only ever reference the roles, never a palette's literal hex.\n\nThe form language belongs to the noxx tool family: square corners everywhere, 1px hairlines between every pane, flat tonal panels, and one tactile flourish, the ledge under the primary button. The selected asset is the hero. Models and textures fill a central stage painted with the palette's sky gradient, between a compact browser on the left and a details rail on the right. Type sets the voice in three registers: Bricolage Grotesque for display and numbers that should read like a game HUD, DM Sans for UI, and IBM Plex Mono for file names, sizes and section labels.\n\nDensity is high (13px body, 28 to 32px controls) because archives hold thousands of entries. Ornament is limited to things the games themselves supply: the sky, the horizon line, the striped sunset mark, and the checkerboard behind transparent textures.",
+    "overview": "The workspace is a dark, dense tool for modders that takes its colors from whichever GTA trilogy game the opened archive belongs to. Vice City at night is the default: an indigo ground, hot pink as the single loud voice, and an ocean cyan that marks the horizon and the keyboard focus. San Andreas (sunset amber and Grove green) and GTA III (flare orange and steel blue) are full alternative palettes, each with a night and a day variant. When an archive is opened and its game is detected, the new palette rises over the old one like a horizon (a 900ms clip-path view transition). Every token in this file is the Vice City night value. The other five variants redefine the same custom properties on `<html data-palette data-theme>`, and components only ever reference the roles, never a palette's literal hex.\n\nThe form language belongs to the noxx tool family: square corners everywhere, 1px hairlines between every pane, flat tonal panels, and one tactile flourish, the ledge under the primary button. The selected asset is the hero. Models and textures fill a central stage painted with the palette's sky gradient, between a compact browser on the left and a details rail on the right. Type sets the voice in three registers: Bricolage Grotesque for display and numbers that should read like a game HUD, DM Sans for UI, and IBM Plex Mono for file names, sizes and section labels.\n\nDensity is high (13px body, 28 to 32px controls) because archives hold thousands of entries. Ornament is limited to things the games themselves supply: the sky, the horizon line, the striped sunset mark, and the checkerboard behind transparent textures.\n\nThe landing is the one place the system turns loud. Under a centered headline, the palette's sky falls into a horizon scene drawn for that game: the striped Vice City sun, a Los Santos dusk behind palms, or the Liberty City skyline in the rain. The scene plays its entrance every time it mounts, so changing the palette or clicking the logo replays it.",
     "keyCharacteristics": [
       "Six palettes (Vice City, San Andreas and GTA III, each by night and by day) share one set of role tokens, and the whole app retints when a game is detected.",
       "Zero radius on every surface and control. Panes are separated by 1px hairlines.",
       "Panels are layered by tone. Shadows only appear on things that float.",
-      "Hot pink (or the active palette's accent) is reserved for the primary action, selection, checked state and unsaved status.",
+      "Hot pink (or the active palette's accent) is reserved for the primary action, selection, checked state and unsaved status. The landing's horizon art is the only decorative use.",
+      "Each game has its own horizon scene on the landing, drawn from tokens and animated in on mount.",
       "Cyan (the second accent) marks focus and the horizon.",
       "Names and numbers are set in mono, and HUD numbers in the display face."
     ],
@@ -1017,7 +1046,7 @@
       },
       {
         "name": "The One Loud Voice Rule",
-        "body": "The accent marks only action, selection and unsaved state. If an element is not one of those, it does not get pink.",
+        "body": "The accent marks only action, selection and unsaved state. If an element is not one of those, it does not get pink. The one exception is the landing's horizon art (the sun and its stripes), which is illustration rather than interface.",
         "section": "colors"
       },
       {
@@ -1044,6 +1073,11 @@
         "name": "The One Ledge Rule",
         "body": "Only the primary action stands on a ledge. Secondary, ghost and destructive buttons stay flat.",
         "section": "elevation"
+      },
+      {
+        "name": "The Smooth Sky Rule",
+        "body": "Color changes on the landing are gradients, never cuts. The sky blends into its horizon color, and the sea fades back into the ground. The only hard edge is the cyan horizon line.",
+        "section": "colors"
       }
     ],
     "dos": [
@@ -1052,12 +1086,16 @@
       "**Do** put the ledge (`0 3px 0 0 var(--accent-ledge)`) under the primary action and nowhere else.",
       "**Do** set file names, sizes, versions and counts in IBM Plex Mono with tabular figures.",
       "**Do** use cyan for focus (a 2px outline offset by 1px, or a cyan border on fields).",
-      "**Do** paint the asset stage and the start hero with the palette sky, and put transparent textures on the palette checkerboard.",
+      "**Do** paint the asset stage with the palette sky and the landing with sky bands, and put transparent textures on the palette checkerboard.",
+      "**Do** blend landing colors with gradients (sky bands into the cyan line, sea into the ground).",
+      "**Do** anchor each scene element to the horizon and size it by the scene's height, so nothing crops at any width.",
       "**Do** give anything that floats one of the soft negative-spread shadows, and keep in-flow surfaces flat."
     ],
     "donts": [
       "**Don't** round corners on any surface or control.",
-      "**Don't** hard-code a palette's hex in a component. The palette picker's swatches are the one exception.",
+      "**Don't** hard-code a palette's hex in a component. The palette picker's swatches, the game cards and the Liberty City beacons are the only exceptions.",
+      "**Don't** use drop-shadow filters for glows. They draw a visible box edge. Use a radial gradient instead.",
+      "**Don't** add rules, dividers or decorative lines under the horizon. The cyan line is the only edge.",
       "**Don't** use the accent for decoration. It marks action, selection, checked state and unsaved work only.",
       "**Don't** fill actions with cyan.",
       "**Don't** place a mono caps label above a headline as an eyebrow. Labels name a group of controls or data.",

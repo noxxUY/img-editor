@@ -17,6 +17,8 @@ colors:
   accent-ink: "#1d0412"
   accent-fg: "#ff6bb7"
   ocean-cyan: "#3fd6f2"
+  sky-low: "#7a2378"
+  sea: "#0d0a20"
   ok: "#4ee39a"
   warn: "#ffc04d"
   danger: "#ff5d6c"
@@ -44,9 +46,15 @@ colors:
 typography:
   display:
     fontFamily: "'Bricolage Grotesque', 'DM Sans', ui-sans-serif, system-ui, sans-serif"
-    fontSize: "clamp(44px, 7vw, 88px)"
+    fontSize: "clamp(44px, 6.4vw, 88px)"
     fontWeight: 700
-    lineHeight: 0.92
+    lineHeight: 0.98
+    letterSpacing: "-0.03em"
+  section-title:
+    fontFamily: "'Bricolage Grotesque', 'DM Sans', ui-sans-serif, system-ui, sans-serif"
+    fontSize: "clamp(32px, 4vw, 48px)"
+    fontWeight: 700
+    lineHeight: 1.05
     letterSpacing: "-0.03em"
   headline:
     fontFamily: "'Bricolage Grotesque', 'DM Sans', ui-sans-serif, system-ui, sans-serif"
@@ -74,7 +82,7 @@ typography:
     lineHeight: 1.45
   body-lead:
     fontFamily: "'DM Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif"
-    fontSize: "16.5px"
+    fontSize: "17px"
     fontWeight: 400
     lineHeight: 1.625
   control:
@@ -105,6 +113,7 @@ spacing:
   xl: "20px"
   2xl: "24px"
   section: "32px"
+  landing-section: "112px"
 components:
   button-primary:
     backgroundColor: "{colors.vice-pink}"
@@ -216,11 +225,14 @@ The form language belongs to the noxx tool family: square corners everywhere, 1p
 
 Density is high (13px body, 28 to 32px controls) because archives hold thousands of entries. Ornament is limited to things the games themselves supply: the sky, the horizon line, the striped sunset mark, and the checkerboard behind transparent textures.
 
+The landing is the one place the system turns loud. Under a centered headline, the palette's sky falls into a horizon scene drawn for that game: the striped Vice City sun, a Los Santos dusk behind palms, or the Liberty City skyline in the rain. The scene plays its entrance every time it mounts, so changing the palette or clicking the logo replays it.
+
 **Key Characteristics:**
 - Six palettes (Vice City, San Andreas and GTA III, each by night and by day) share one set of role tokens, and the whole app retints when a game is detected.
 - Zero radius on every surface and control. Panes are separated by 1px hairlines.
 - Panels are layered by tone. Shadows only appear on things that float.
-- Hot pink (or the active palette's accent) is reserved for the primary action, selection, checked state and unsaved status.
+- Hot pink (or the active palette's accent) is reserved for the primary action, selection, checked state and unsaved status. The landing's horizon art is the only decorative use.
+- Each game has its own horizon scene on the landing, drawn from tokens and animated in on mount.
 - Cyan (the second accent) marks focus and the horizon.
 - Names and numbers are set in mono, and HUD numbers in the display face.
 
@@ -234,7 +246,7 @@ The palette is a game palette drawn at night: a near-black tinted ground, one sa
 - **Accent Ink** (accent-ink): text and checkmarks drawn on top of an accent fill.
 
 ### Secondary
-- **Ocean Cyan** (ocean-cyan): the horizon. Use it for the focus ring and focused field border, the horizon stripe in the mark, and the 2px horizon line at the bottom of the landing sky. Never use it as a fill for actions.
+- **Ocean Cyan** (ocean-cyan): the horizon. Use it for the focus ring and focused field border, the horizon stripe in the mark, the 3px horizon line under each landing sky, the step numbers and the "after saving" caption on the landing, and the Liberty City rain. Never use it as a fill for actions.
 
 ### Tertiary
 - **Kind colors** (kind-model, kind-textures, kind-collision, kind-animation, kind-other): one square swatch per file type, used in the type grid, the list rows, the stage header and the sector map. Each palette re-tunes them so they never collide with its own accent. In GTA III, for example, the animation kind is pink because the accent is orange.
@@ -245,14 +257,18 @@ The palette is a game palette drawn at night: a near-black tinted ground, one sa
 - **Panel / Panel Raised / Panel High** (panel, panel-raised, panel-high): three tonal steps. Panel is for bars, rails and dialogs. Raised is for buttons, selected rows and active nav. High is for button hover and the active type-filter cell.
 - **Hairline / Hairline Strong** (hairline, hairline-strong): pane dividers, and control borders or scrollbar thumbs, respectively.
 - **Ink / Ink Muted / Ink Faint** (ink, ink-muted, ink-faint): primary text, secondary text, and tertiary marks (placeholders, counts, mono labels).
-- **Sky** (`--sky`, sidecar): a vertical gradient from the ground into the palette's dusk. It paints the landing hero, the 3D stage and the reveal veil. A radial glow (`--sky-glow`) sits on its bottom edge.
+- **Sky** (`--sky`, sidecar): a vertical gradient from the ground into the palette's dusk. It paints the 3D stage and the reveal veil.
+- **Sky Bands** (`.sky-bands`, built from sky-low): the landing sky. It holds the ground for the top 18%, then falls through 12%, 38% and 72% mixes of **Sky Low** (sky-low, the palette's horizon color) into Sky Low itself at the horizon, all mixed in oklab so the fall has no visible steps. A radial `--sky-glow` sits behind the sun. It paints the hero and the closing call to action.
+- **Sea** (sea): the strip under the horizon line. `.sea-fade` holds it for 55% of its height and then fades into the ground, so the page never has a hard color cut below the sky.
 
 ### Named Rules
 **The Retint Rule.** Components reference role tokens (`--accent`, `--panel-2`, `--k-dff`), never a palette's literal value. The one exception is the palette picker, which draws each game's swatches as they are. Anything hard-coded breaks the moment a San Andreas archive opens.
 
-**The One Loud Voice Rule.** The accent marks only action, selection and unsaved state. If an element is not one of those, it does not get pink.
+**The One Loud Voice Rule.** The accent marks only action, selection and unsaved state. If an element is not one of those, it does not get pink. The one exception is the landing's horizon art (the sun and its stripes), which is illustration rather than interface.
 
 **The Horizon Rule.** Cyan means "you are here": focus, and the line where sky meets page. It never fills an action.
+
+**The Smooth Sky Rule.** Color changes on the landing are gradients, never cuts. The sky blends into its horizon color, and the sea fades back into the ground. The only hard edge is the cyan horizon line.
 
 ## Typography
 
@@ -263,12 +279,13 @@ The palette is a game palette drawn at night: a near-black tinted ground, one sa
 **Character:** A chunky optical-size grotesque for the name and the numbers, a calm humanist sans for the UI, and a typewriter mono for anything that is literally data (file names, sizes, versions, offsets).
 
 ### Hierarchy
-- **Display** (700, clamp(44px, 7vw, 88px), 0.92, -0.03em): the "IMG Editor" wordmark on the start screen only, next to the 72px mark.
+- **Display** (700, clamp(44px, 6.4vw, 88px), 0.98, -0.03em, balanced): the landing headline only, "Your GTA archives, opened in the browser.", centered and capped at 16ch.
+- **Section Title** (700, clamp(32px, 4vw, 48px), 1.05, -0.03em): landing section headings and the closing "Drop your gta3.img." (up to 52px). Step titles use the same face at 22px and game names at 30px.
 - **Headline** (600, 18 to 20px, -0.01em): dialog titles, the drop-zone line, the empty-stage prompt, and fact titles (15.5px).
 - **Stat** (600, 17px/22px, tabular): HUD numbers in the 3D stage's top-right corner. Each sits under a mono label and carries a soft ground-colored text shadow so it reads over geometry.
 - **Title Mono** (600, 20px/26px, -0.02em): the selected entry's file name in the stage header.
 - **Body** (400, 13px, 1.45): all workspace UI. Long help text is capped at about 60ch.
-- **Body Lead** (400, 16.5px, relaxed): the single landing paragraph, capped at 46ch.
+- **Body Lead** (400, 17px, 18px from md, relaxed): the landing intro, capped at 50ch, and section intros, capped at 52ch. Step descriptions drop to 15px.
 - **Control** (500, 13px; 12.5px small, 15px/600 large): buttons, nav items, toggles, chips.
 - **Data Mono** (400 to 500, 11 to 12.5px, tabular): archive name, sizes, counts, offsets, texture names. Inline file names inside prose drop to mono at about 1 to 2px smaller than the surrounding text.
 - **Label** (500, 10.5px, 0.08em, uppercase mono): names a group of controls or data, such as rail sections, HUD stat names, table heads, "Sectors" and "Palette".
@@ -276,17 +293,25 @@ The palette is a game palette drawn at night: a near-black tinted ground, one sa
 ### Named Rules
 **The Data Is Mono Rule.** If a string is a file name, version, size or count, set it in IBM Plex Mono with tabular figures. The exception is HUD stats, which use the display face so they read like a game HUD.
 
-**The Label Names A Group Rule.** The mono caps label only names the controls or data directly beneath it or beside it. It never sits above a headline as decoration.
+**The Label Names A Group Rule.** The mono caps label only names the controls or data directly beneath it or beside it. It never sits above a headline as decoration. The landing has no eyebrows: its sections open straight on the title.
 
 ## Layout
 
 The app has two states.
 
-**Start screen.** A full-bleed sky band holds a two-column section (max-width 1120px; columns 1fr and 0.9fr from lg up; gaps of 48 to 64px). On the left are the mark, the display wordmark, one paragraph and the primary button with its shortcut. On the right is a dashed drop zone at least 300px tall. A 2px cyan horizon line closes the sky. Below it, the facts sit in a grid of 1, 2 or 4 columns whose 1px gaps show the hairline color, followed by the footer.
+**Landing.** The 52px top bar sits on the ground with no border: the logo on the left, and on the right the section links (How it works, Games, Source; md and up), a small primary "Open an archive" and the palette menu. Below it the page scrolls in one column:
+1. **Hero.** A full-bleed sky band. A centered stack, 24px apart: the display headline, the lead, the primary and secondary large buttons, and a mono hint ("or drop gta3.img anywhere · Ctrl O"). Vertical padding is clamp(40px, 8vh, 88px) above and clamp(48px, 7vh, 80px) below. The horizon scene, clamp(170px, 19vw, 270px) tall, sits at the bottom edge, and a 3px cyan line closes the sky. A sea-fade strip follows.
+2. **How it works** (`#how`). A section title, then three numbered steps in a row from sm, joined by 1px hairline gaps on a bordered grid.
+3. **Rebuilt without gaps.** Copy on the left and, on the right, two strips of kind-colored blocks: the archive "before, with gaps" and "after saving, compact". They wrap to one column on narrow screens.
+4. **Games** (`#games`). Three game cards in a row from sm.
+5. **Closing call.** A 224px sky band and its 3px cyan line, then on the sea: "Drop your gta3.img." with the primary large button.
+6. The footer.
+
+Content sections are capped at 1200px with 20px gutters (32px from md) and separated by 112px. The closing call sits 144px below the games.
 
 **Workspace.** A 52px top bar holds the mark, the archive "cartridge" and the actions. The main grid is `340px | 1fr | 288px` at xl. At md it becomes `minmax(290px,340px) | 1fr`, with the details rail as a 300px slide-in drawer. On phones, the list and the stage are separate views connected by a back button. A sector strip sits along the bottom. Panes meet at 1px hairlines with no gutters between them.
 
-**Spacing.** The rhythm uses a 4px base. Controls are 28px (small) or 32px tall, with 44px for the hero action. Pane padding is 12 to 16px, rising to 20 to 24px on the stage and in dialogs. The landing hero uses 56 to 96px of vertical padding.
+**Spacing.** The rhythm uses a 4px base. Controls are 28px (small) or 32px tall, with 44px for the hero action. Pane padding is 12 to 16px, rising to 20 to 24px on the stage and in dialogs. The landing uses 112px between sections and 40px from a section title to its content.
 
 **Breakpoints.** Tailwind defaults: sm 640, md 768, lg 1024, xl 1280.
 
@@ -310,7 +335,7 @@ Depth comes from tone in this system. Within the flow, panels step from ground t
 
 ## Shapes
 
-All corners are square (0 radius), including buttons, fields, checkboxes, swatches, menus, dialogs, the scrollbar thumb and the spinner (a square with one transparent side). Borders are 1px hairlines. The exception is the `kbd` key, which has a 2px bottom edge so it reads as a physical key. The drop zone is the only dashed border. It turns into accent marching ants while a file is dragged over it. The brand mark carries the system's one curved silhouette: a circle clipped into three horizontal stripes (sectors) above two cyan horizon bars. Joined buttons overlap their borders by 1px so they share one hairline.
+All corners are square (0 radius), including buttons, fields, checkboxes, swatches, menus, dialogs, the scrollbar thumb and the spinner (a square with one transparent side). Borders are 1px hairlines. The exception is the `kbd` key, which has a 2px bottom edge so it reads as a physical key. There is no static drop zone: the whole page accepts a drop. While a file is dragged over the workspace, panel-colored targets ("add" and "replace") appear with accent marching ants around them. The brand mark carries the system's one curved silhouette: a circle clipped into three horizontal stripes (sectors) above two cyan horizon bars. Joined buttons overlap their borders by 1px so they share one hairline.
 
 ## Components
 
@@ -364,12 +389,31 @@ The selected asset fills a sky-painted stage. The 3D view carries four layers:
 Textures sit on the checkerboard (16px, from the palette's checker pair), with a zoom readout in a mono tag.
 
 ### Brand Mark
-A 32-unit SVG made of three accent stripes clipped to a circle (the sun) above two cyan bars (the horizon, the lower one at 55% opacity). It is drawn from tokens, so it follows the palette. It appears at 24px in the top bar and 72px on the start screen, beside the Bricolage wordmark and "by noxx" in mono.
+A 32-unit SVG made of three accent stripes clipped to a circle (the sun) above two cyan bars (the horizon, the lower one at 55% opacity). It is drawn from tokens, so it follows the palette. It appears at 24px in the top bar, on the left, beside the 15px Bricolage wordmark and "by noxx" in mono. The SVG box is shifted down 1.5 units so the sun sits on the bar's center line, and the wordmark drops 1px to align with it. In the workspace the wordmark hides below sm.
+
+The logo is always a way home. A click wipes the stripes open from the middle (520ms, staggered 70ms) and slides the horizon bars back in. On the landing it scrolls back to the top and replays the horizon; in the workspace it closes the archive and returns to the landing. Hover tints the wordmark with accent text.
+
+### Horizon Scenes (signature)
+Each palette has its own scene on the landing, drawn from tokens so it follows night and day. Every scene is `aria-hidden`.
+- **Vice City:** a half sun of five accent stripes (the top one in the hover step) that thin toward the horizon, inside a rounded-top clip, over a radial `--sky-glow`. The glow is a gradient, never a drop-shadow filter, so it has no box edges.
+- **San Andreas:** a large accent sun with a lighter cap and three bars of haze, low hills mixed from the ground and sky-low, and six palms in ground-colored silhouette. Each palm and the sun are separate SVGs anchored to the horizon and sized by the scene's height, so a wide screen never crops a crown.
+- **GTA III:** a Liberty City skyline in three depths (far, mid and near, mixed 62%, 32% and 10% of sky-low into the ground). It has art deco setbacks, spires and water tanks, a suspension bridge on the right, lit windows that flicker, red aircraft beacons, and slanted cyan rain at 18% opacity.
+
+The beacons (`#ff4a3d`) are the one literal color inside a scene.
+
+### Game Cards
+Three cards, one per game, each painted in that game's own night colors no matter which palette is active: a dark card (`#14171b`, `#1b1240`, `#221a10`), the year and IMG format in mono, the game name at 30px display, the files it needs in mono, and a 6px bar in the game's two accents (3:1) along the bottom. On hover, the card lifts 4px and the bar grows to 10px over 300ms. They are not interactive, so they have no focus state. Like the palette picker, they hard-code each game's colors on purpose.
+
+### Steps
+Three steps, each a cell on the ground: a cyan mono number, a 22px display title and a 15px muted description, with 28px padding.
 
 ### Motion
 - **Easing:** expo-out (`cubic-bezier(0.22, 1, 0.36, 1)`).
 - **Durations:** state changes take 100 to 150ms. Entrances are pop 180ms, slide 220ms and rise 300ms, staggered by 100ms. The palette sweep takes 900ms.
-- **Reduced motion:** entrances collapse to a fade, and loops (ants, shimmer, spinner, pulse) stop.
+- **Landing scenes:** each scene enters over 900ms with expo-out (`cubic-bezier(0.16, 1, 0.3, 1)`). The Vice City stripes open from the middle, 90ms apart. The sun and hills fade up from 97% scale. Palms and towers rise from the horizon, staggered. Then the loops take over: palms sway ±1.6° over 5 to 9s, windows switch on in 4 steps and flicker every 7s, beacons blink every 2.2s, and rain falls on a 700ms loop.
+- **Scroll reveals:** section titles, steps, cards and the closing call rise 32px as they enter the view, driven by `animation-timeline: view()`. The archive strips grow from the left and then close their gaps. Browsers without scroll timelines show everything in place.
+- **Hero entrance:** the page fades in over 200ms, and the headline, lead, buttons and hint rise with a 100ms stagger.
+- **Reduced motion:** entrances collapse to a fade, and loops (ants, spinner, pulse, sway, flicker, beacons, rain) stop. Scene and scroll animations only run under `prefers-reduced-motion: no-preference`, so the scenes appear complete and still.
 - **Palette and theme switches:** these suspend transitions for one frame so colors swap cleanly instead of smearing.
 
 ## Do's and Don'ts
@@ -380,12 +424,16 @@ A 32-unit SVG made of three accent stripes clipped to a circle (the sun) above t
 - **Do** put the ledge (`0 3px 0 0 var(--accent-ledge)`) under the primary action and nowhere else.
 - **Do** set file names, sizes, versions and counts in IBM Plex Mono with tabular figures.
 - **Do** use cyan for focus (a 2px outline offset by 1px, or a cyan border on fields).
-- **Do** paint the asset stage and the start hero with the palette sky, and put transparent textures on the palette checkerboard.
+- **Do** paint the asset stage with the palette sky and the landing with sky bands, and put transparent textures on the palette checkerboard.
+- **Do** blend landing colors with gradients (sky bands into the cyan line, sea into the ground).
+- **Do** anchor each scene element to the horizon and size it by the scene's height, so nothing crops at any width.
 - **Do** give anything that floats one of the soft negative-spread shadows, and keep in-flow surfaces flat.
 
 ### Don't:
 - **Don't** round corners on any surface or control.
-- **Don't** hard-code a palette's hex in a component. The palette picker's swatches are the one exception.
+- **Don't** hard-code a palette's hex in a component. The palette picker's swatches, the game cards and the Liberty City beacons are the only exceptions.
+- **Don't** use drop-shadow filters for glows. They draw a visible box edge. Use a radial gradient instead.
+- **Don't** add rules, dividers or decorative lines under the horizon. The cyan line is the only edge.
 - **Don't** use the accent for decoration. It marks action, selection, checked state and unsaved work only.
 - **Don't** fill actions with cyan.
 - **Don't** place a mono caps label above a headline as an eyebrow. Labels name a group of controls or data.
